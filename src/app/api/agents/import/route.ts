@@ -36,13 +36,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check for conflicts (already imported)
+    // Check conflicts per workspace (same gateway agent can exist in different workspaces)
     const existingImports = queryAll<Agent>(
       `SELECT * FROM agents WHERE gateway_agent_id IS NOT NULL`
     );
-    const importedGatewayIds = new Set(existingImports.map((a) => a.gateway_agent_id));
+    const importedByWorkspace = new Set(
+      existingImports.map((a) => `${a.workspace_id || 'default'}::${a.gateway_agent_id}`)
+    );
 
-    const results: { imported: Agent[]; skipped: { gateway_agent_id: string; reason: string }[] } = {
+    const results: { imported: Agent[]; skipped: { gateway_agent_id: string; workspace_id?: string; reason: string }[] } = {
       imported: [],
       skipped: [],
     };
@@ -51,17 +53,20 @@ export async function POST(request: NextRequest) {
       const now = new Date().toISOString();
 
       for (const agentReq of body.agents) {
-        // Skip if already imported
-        if (importedGatewayIds.has(agentReq.gateway_agent_id)) {
+        const workspaceId = agentReq.workspace_id || 'default';
+        const importKey = `${workspaceId}::${agentReq.gateway_agent_id}`;
+
+        // Skip only if already imported in THIS workspace
+        if (importedByWorkspace.has(importKey)) {
           results.skipped.push({
             gateway_agent_id: agentReq.gateway_agent_id,
-            reason: 'Already imported',
+            workspace_id: workspaceId,
+            reason: 'Already imported in this workspace',
           });
           continue;
         }
 
         const id = uuidv4();
-        const workspaceId = agentReq.workspace_id || 'default';
 
         run(
           `INSERT INTO agents (id, name, role, description, avatar_emoji, is_master, workspace_id, model, source, gateway_agent_id, created_at, updated_at)
@@ -88,6 +93,8 @@ export async function POST(request: NextRequest) {
            VALUES (?, ?, ?, ?, ?)`,
           [uuidv4(), 'agent_joined', id, `${agentReq.name} imported from OpenClaw Gateway`, now]
         );
+
+        importedByWorkspace.add(importKey);
 
         const agent = queryOne<Agent>('SELECT * FROM agents WHERE id = ?', [id]);
         if (agent) {

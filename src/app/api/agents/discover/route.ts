@@ -18,8 +18,11 @@ interface GatewayAgent {
 }
 
 // GET /api/agents/discover - Discover existing agents from the OpenClaw Gateway
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const workspaceId = searchParams.get('workspace_id') || 'default';
+
     const client = getOpenClawClient();
 
     if (!client.isConnected()) {
@@ -51,9 +54,10 @@ export async function GET() {
       );
     }
 
-    // Get all agents already imported from the gateway
+    // Get agents already imported from gateway IN THIS WORKSPACE
     const existingAgents = queryAll<Agent>(
-      `SELECT * FROM agents WHERE gateway_agent_id IS NOT NULL`
+      `SELECT * FROM agents WHERE gateway_agent_id IS NOT NULL AND workspace_id = ?`,
+      [workspaceId]
     );
     const importedGatewayIds = new Map(
       existingAgents.map((a) => [a.gateway_agent_id, a.id])

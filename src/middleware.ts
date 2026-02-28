@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Log warning at startup if auth is disabled
+// API bearer token (optional)
 const MC_API_TOKEN = process.env.MC_API_TOKEN;
 if (!MC_API_TOKEN) {
   console.warn('[SECURITY WARNING] MC_API_TOKEN not set - API authentication is DISABLED (local dev mode)');
+}
+
+// Basic auth for dashboard + API (optional but recommended for internet-exposed instances)
+const MC_BASIC_AUTH_USER = process.env.MC_BASIC_AUTH_USER;
+const MC_BASIC_AUTH_PASS = process.env.MC_BASIC_AUTH_PASS;
+const BASIC_AUTH_ENABLED = Boolean(MC_BASIC_AUTH_USER && MC_BASIC_AUTH_PASS);
+if (!BASIC_AUTH_ENABLED) {
+  console.warn('[SECURITY WARNING] Basic auth is DISABLED (set MC_BASIC_AUTH_USER + MC_BASIC_AUTH_PASS)');
 }
 
 /**
@@ -53,10 +61,51 @@ if (DEMO_MODE) {
   console.log('[DEMO] Running in demo mode — all write operations are blocked');
 }
 
+function unauthorizedBasicAuth(): NextResponse {
+  const response = new NextResponse('Authentication required', { status: 401 });
+  response.headers.set('WWW-Authenticate', 'Basic realm="Mission Control"');
+  return response;
+}
+
+function hasValidBasicAuth(request: NextRequest): boolean {
+  if (!BASIC_AUTH_ENABLED) return true;
+
+  const authHeader = request.headers.get('authorization');
+  if (!authHeader || !authHeader.startsWith('Basic ')) return false;
+
+  try {
+    const base64 = authHeader.substring(6);
+    const decoded = atob(base64);
+    const idx = decoded.indexOf(':');
+    if (idx < 0) return false;
+
+    const user = decoded.slice(0, idx);
+    const pass = decoded.slice(idx + 1);
+
+    return user === MC_BASIC_AUTH_USER && pass === MC_BASIC_AUTH_PASS;
+  } catch {
+    return false;
+  }
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect /api/* routes
+  // Skip auth for static Next assets and favicon
+  if (
+    pathname.startsWith('/_next/') ||
+    pathname === '/favicon.ico' ||
+    pathname === '/favicon.svg'
+  ) {
+    return NextResponse.next();
+  }
+
+  // Basic auth for UI + API when enabled
+  if (!hasValidBasicAuth(request)) {
+    return unauthorizedBasicAuth();
+  }
+
+  // Non-API routes: basic auth already checked
   if (!pathname.startsWith('/api/')) {
     // Add demo mode header for UI detection
     if (DEMO_MODE) {
@@ -121,5 +170,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/api/:path*',
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)'],
 };

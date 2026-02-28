@@ -507,3 +507,18 @@ Run:
 What it validates:
 1. `mission-control` systemd service is active
 2. `GET /api/openclaw/status` reports `connected=true`
+
+
+### Basic login (recommended)
+
+Set these in `.env.local` / `.env.production.local`:
+
+- `MC_BASIC_AUTH_USER`
+- `MC_BASIC_AUTH_PASS`
+
+When set, Mission Control requires HTTP Basic Auth for both UI and API.
+
+### Gateway agent imports per workspace
+
+Gateway agents can now be imported once **per workspace**.
+The same `gateway_agent_id` (e.g. `codex`) can exist in multiple workspaces, but duplicates inside the same workspace are prevented.
