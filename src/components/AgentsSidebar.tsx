@@ -25,9 +25,10 @@ interface RoomItem {
 interface AgentsSidebarProps {
   workspaceId?: string;
   mobileMode?: boolean;
+  onOpenTaskFromRoom?: () => void;
 }
 
-export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
+export function AgentsSidebar({ workspaceId, mobileMode, onOpenTaskFromRoom }: AgentsSidebarProps) {
   const { agents, tasks, selectedAgent, setSelectedAgent, setSelectedTask, agentOpenClawSessions, setAgentOpenClawSession } = useMissionControl();
   const [filter, setFilter] = useState<FilterTab>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -414,7 +415,10 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
                   key={room.conversation_id}
                   onClick={() => {
                     const task = tasks.find((t) => t.id === room.task_id) as Task | undefined;
-                    if (task) setSelectedTask(task);
+                    if (task) {
+                      setSelectedTask(task);
+                      onOpenTaskFromRoom?.();
+                    }
                     setLastSeenByRoom((prev) => ({ ...prev, [room.conversation_id]: new Date().toISOString() }));
                   }}
                   className={`w-full text-left p-2 rounded border transition-colors ${isUnread ? 'border-mc-accent-cyan/60 bg-mc-bg-tertiary/40' : 'border-transparent hover:border-mc-border hover:bg-mc-bg-tertiary'}`}

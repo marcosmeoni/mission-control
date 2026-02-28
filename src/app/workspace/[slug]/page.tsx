@@ -208,7 +208,13 @@ export default function WorkspacePage() {
         <>
           <div className="flex-1 overflow-hidden flex flex-col">
             {mobileView === 'board' && <MissionQueue workspaceId={workspace.id} />}
-            {mobileView === 'agents' && <AgentsSidebar workspaceId={workspace.id} mobileMode />}
+            {mobileView === 'agents' && (
+              <AgentsSidebar
+                workspaceId={workspace.id}
+                mobileMode
+                onOpenTaskFromRoom={() => setMobileView('board')}
+              />
+            )}
             {mobileView === 'feed' && <LiveFeed mobileMode />}
           </div>
 
