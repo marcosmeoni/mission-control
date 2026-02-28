@@ -429,6 +429,7 @@ export function AgentsSidebar({ workspaceId, mobileMode, onOpenTaskFromRoom }: A
                     }
 
                     if (task) {
+                      try { localStorage.setItem(`mc:task-open-tab:${task.id}`, 'room'); } catch {}
                       setSelectedTask(task);
                       onOpenTaskFromRoom?.();
                     }

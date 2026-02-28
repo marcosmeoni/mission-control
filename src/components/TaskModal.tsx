@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { X, Save, Trash2, Activity, Package, Bot, ClipboardList, Plus, MessagesSquare } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import { triggerAutoDispatch, shouldTriggerAutoDispatch } from '@/lib/auto-dispatch';
@@ -26,12 +26,27 @@ export function TaskModal({ task, onClose, workspaceId }: TaskModalProps) {
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [usePlanningMode, setUsePlanningMode] = useState(false);
   // Auto-switch to planning tab if task is in planning status
-  const [activeTab, setActiveTab] = useState<TabType>(task?.status === 'planning' ? 'planning' : 'overview');
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    if (task?.id && typeof window !== 'undefined') {
+      const forced = localStorage.getItem(`mc:task-open-tab:${task.id}`);
+      if (forced === 'room') return 'room';
+    }
+    return task?.status === 'planning' ? 'planning' : 'overview';
+  });
 
   // Stable callback for when spec is locked - use window.location.reload() to refresh data
   const handleSpecLocked = useCallback(() => {
     window.location.reload();
   }, []);
+
+  useEffect(() => {
+    if (!task?.id) return;
+    const forced = localStorage.getItem(`mc:task-open-tab:${task.id}`);
+    if (forced === 'room') {
+      setActiveTab('room');
+      localStorage.removeItem(`mc:task-open-tab:${task.id}`);
+    }
+  }, [task?.id]);
 
   const [form, setForm] = useState({
     title: task?.title || '',
