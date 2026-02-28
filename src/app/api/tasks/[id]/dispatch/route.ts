@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
 import { queryOne, queryAll, run } from '@/lib/db';
 import { getOpenClawClient } from '@/lib/openclaw/client';
 import { broadcast } from '@/lib/events';
@@ -10,26 +11,42 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+type RouterRule = { key: string; patterns: string[] };
+
+const DEFAULT_ROUTER_RULES: RouterRule[] = [
+  { key: 'spec-iac', patterns: ['terraform', 'terragrunt', 'iam', 'vpc', 'policy', 'módulo', 'modulo'] },
+  { key: 'spec-k8s', patterns: ['k8s', 'kubernetes', 'eks', 'oke', 'aks', 'ingress', 'hpa', 'karpenter', 'helm'] },
+  { key: 'spec-ci', patterns: ['pipeline', 'github actions', 'gitlab ci', 'bitbucket', 'cicd', 'ci/'] },
+  { key: 'spec-python', patterns: ['python', 'script', 'automation', 'bot', 'parser'] },
+  { key: 'spec-ansible', patterns: ['ansible', 'playbook', 'hardening', 'inventory'] },
+  { key: 'spec-observability', patterns: ['slo', 'sli', 'grafana', 'prometheus', 'alert', 'observab'] },
+  { key: 'spec-finops', patterns: ['cost', 'finops', 'spend', 'billing', 'rightsiz', 'oci'] },
+  { key: 'spec-secops-cloud', patterns: ['security', 'secrets', 'least privilege', 'posture', 'compliance'] },
+  { key: 'spec-release-manager', patterns: ['release', 'deploy window', 'change management', 'cutover'] },
+  { key: 'spec-incident-commander', patterns: ['incident', 'sev1', 'sev2', 'sev3', 'outage', 'rca', 'postmortem'] },
+  { key: 'spec-platform-engineering', patterns: ['golden path', 'platform', 'scaffold', 'template'] },
+  { key: 'spec-runbook-automation', patterns: ['runbook', 'automation workflow', 'operational procedure'] },
+  { key: 'spec-dr-bcp', patterns: ['dr', 'bcp', 'backup', 'restore', 'rto', 'rpo'] },
+];
+
+function loadRouterRules(): RouterRule[] {
+  const p = '/root/.openclaw/workspace/projects/personal/mission-control/data/router-rules.json';
+  try {
+    if (fs.existsSync(p)) {
+      const raw = fs.readFileSync(p, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed?.rules)) return parsed.rules;
+    }
+  } catch {}
+  return DEFAULT_ROUTER_RULES;
+}
+
 function pickSpecialist(taskTitle: string, taskDescription?: string | null): string | null {
   const text = `${taskTitle} ${taskDescription || ''}`.toLowerCase();
-  const rules: Array<{ key: string; patterns: RegExp[] }> = [
-    { key: 'spec-iac', patterns: [/terraform|terragrunt|iam|vpc|policy|m[oó]dulo/] },
-    { key: 'spec-k8s', patterns: [/k8s|kubernetes|eks|oke|aks|ingress|hpa|karpenter|helm/] },
-    { key: 'spec-ci', patterns: [/pipeline|github actions|gitlab ci|bitbucket|cicd|ci\//] },
-    { key: 'spec-python', patterns: [/python|script|automation|bot|parser/] },
-    { key: 'spec-ansible', patterns: [/ansible|playbook|hardening|inventory/] },
-    { key: 'spec-observability', patterns: [/slo|sli|grafana|prometheus|alert|observab/] },
-    { key: 'spec-finops', patterns: [/cost|finops|spend|billing|rightsiz|oci/] },
-    { key: 'spec-secops-cloud', patterns: [/security|secrets|least privilege|posture|compliance/] },
-    { key: 'spec-release-manager', patterns: [/release|deploy window|change management|cutover/] },
-    { key: 'spec-incident-commander', patterns: [/incident|sev[0-9]|outage|rca|postmortem/] },
-    { key: 'spec-platform-engineering', patterns: [/golden path|platform|scaffold|template/] },
-    { key: 'spec-runbook-automation', patterns: [/runbook|automation workflow|operational procedure/] },
-    { key: 'spec-dr-bcp', patterns: [/dr|bcp|backup|restore|rto|rpo/] },
-  ];
+  const rules = loadRouterRules();
 
   for (const r of rules) {
-    if (r.patterns.some((p) => p.test(text))) return r.key;
+    if (r.patterns.some((p) => text.includes(String(p).toLowerCase()))) return r.key;
   }
   return null;
 }

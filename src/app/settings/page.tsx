@@ -21,6 +21,8 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [routerRulesJson, setRouterRulesJson] = useState('');
+  const [routerMsg, setRouterMsg] = useState<string | null>(null);
 
   const calcPasswordStrength = (pwd: string) => {
     if (!pwd) return { label: '—', color: 'text-mc-text-secondary', score: 0 };
@@ -51,6 +53,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setConfig(getConfig());
+
+    fetch('/api/router-rules')
+      .then((r) => r.json())
+      .then((data) => setRouterRulesJson(JSON.stringify(data, null, 2)))
+      .catch(() => setRouterRulesJson('{\n  "rules": []\n}'));
   }, []);
 
   const handleSave = async () => {
@@ -83,6 +90,26 @@ export default function SettingsPage() {
   const handleChange = (field: keyof MissionControlConfig, value: string) => {
     if (!config) return;
     setConfig({ ...config, [field]: value });
+  };
+
+  const handleSaveRouterRules = async () => {
+    setRouterMsg(null);
+    try {
+      const parsed = JSON.parse(routerRulesJson);
+      const res = await fetch('/api/router-rules', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(parsed),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRouterMsg(data?.error || 'No se pudo guardar el mapping');
+      } else {
+        setRouterMsg('Mapping guardado ✅');
+      }
+    } catch {
+      setRouterMsg('JSON inválido. Revisá formato.');
+    }
   };
 
   const handleChangePassword = async () => {
@@ -345,6 +372,31 @@ export default function SettingsPage() {
             {passwordMsg && (
               <p className="text-sm text-mc-text-secondary">{passwordMsg}</p>
             )}
+          </div>
+        </section>
+
+        {/* Auto-routing rules */}
+        <section className="mb-8 p-6 bg-mc-bg-secondary border border-mc-border rounded-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings className="w-5 h-5 text-mc-accent" />
+            <h2 className="text-xl font-semibold text-mc-text">Routing coordinador → specialist</h2>
+          </div>
+          <p className="text-sm text-mc-text-secondary mb-3">
+            Editá el mapping de keywords a spec. Formato JSON: {'{"rules":[{"key":"spec-iac","patterns":["terraform"]}]}' }
+          </p>
+          <textarea
+            value={routerRulesJson}
+            onChange={(e) => setRouterRulesJson(e.target.value)}
+            className="w-full min-h-[220px] px-4 py-2 bg-mc-bg border border-mc-border rounded text-mc-text font-mono text-xs focus:border-mc-accent focus:outline-none"
+          />
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={handleSaveRouterRules}
+              className="px-4 py-2 bg-mc-accent text-mc-bg rounded hover:bg-mc-accent/90"
+            >
+              Guardar mapping
+            </button>
+            {routerMsg && <p className="text-sm text-mc-text-secondary">{routerMsg}</p>}
           </div>
         </section>
 
