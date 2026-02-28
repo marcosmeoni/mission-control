@@ -109,6 +109,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     if (responder && responder.id !== senderAgentId) {
+      // Conversational state transitions based on feedback intent
+      const lower = content.toLowerCase();
+      const toPlanning = ['falta info', 'falta contexto', 'necesito datos', 'definime', 'defíname', 'no tengo datos', 'sin datos'].some((k) => lower.includes(k));
+      const toInProgress = ['falto', 'faltó', 'cambiar', 'ajustar', 'agregar', 'modificar', 'corregir', 'revisar', 'mejorar'].some((k) => lower.includes(k));
+
+      if (toPlanning || toInProgress) {
+        const nextStatus = toPlanning ? 'planning' : 'in_progress';
+        run('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?', [nextStatus, new Date().toISOString(), taskId]);
+
+        run(
+          `INSERT INTO task_activities (id, task_id, agent_id, activity_type, message, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            uuidv4(),
+            taskId,
+            responder.id,
+            'updated',
+            toPlanning
+              ? 'Room feedback indicates missing context. Task moved to planning.'
+              : 'Room feedback requests changes. Task moved to in_progress.',
+            new Date().toISOString(),
+          ]
+        );
+      }
+
       const ackId = uuidv4();
       run(
         `INSERT INTO messages (id, conversation_id, sender_agent_id, content, message_type, created_at)
