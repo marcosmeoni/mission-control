@@ -142,6 +142,34 @@ export async function POST(
       } : undefined,
     };
 
+    // Mirror activity to task room conversation (chat visibility)
+    try {
+      let conv = db.prepare(`SELECT id FROM conversations WHERE task_id = ? AND type = 'task' LIMIT 1`).get(taskId) as { id: string } | undefined;
+      if (!conv) {
+        const convId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        db.prepare(`INSERT INTO conversations (id, title, type, task_id, created_at, updated_at) VALUES (?, ?, 'task', ?, ?, ?)`)
+          .run(convId, `Task Room ${taskId.slice(0, 8)}`, taskId, now, now);
+        conv = { id: convId };
+      }
+
+      db.prepare(`
+        INSERT INTO messages (id, conversation_id, sender_agent_id, content, message_type, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        crypto.randomUUID(),
+        conv.id,
+        agent_id || null,
+        `📝 ${message}`,
+        'task_update',
+        new Date().toISOString()
+      );
+
+      db.prepare(`UPDATE conversations SET updated_at = ? WHERE id = ?`).run(new Date().toISOString(), conv.id);
+    } catch (e) {
+      console.warn('Failed to mirror activity into task room:', e);
+    }
+
     // Broadcast to SSE clients
     broadcast({
       type: 'activity_logged',
