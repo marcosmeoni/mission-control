@@ -55,12 +55,15 @@ export async function GET() {
 
     for (const s of sessions) {
       const key = String(s?.key || '');
-      const model = String(s?.model || s?.modelProvider + '/' + s?.model || 'unknown');
+      const provider = String(s?.modelProvider || '').trim();
+      const rawModel = String(s?.model || 'unknown').trim();
+      const model = rawModel.includes('/') ? rawModel : (provider ? `${provider}/${rawModel}` : rawModel);
       const input = Number(s?.inputTokens || 0);
       const output = Number(s?.outputTokens || 0);
       const t = Number(s?.totalTokens || input + output || 0);
 
-      const price = pricing[model] || { inputPer1M: 0, outputPer1M: 0 };
+      const bareModel = model.includes('/') ? model.split('/').slice(1).join('/') : model;
+      const price = pricing[model] || pricing[bareModel] || { inputPer1M: 0, outputPer1M: 0 };
       const est = (input / 1_000_000) * price.inputPer1M + (output / 1_000_000) * price.outputPer1M;
 
       total.inputTokens += input;
