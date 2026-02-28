@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 
+export const dynamic = 'force-dynamic';
+
 const FILE_PATH = '/root/.openclaw/workspace/projects/personal/mission-control/data/router-rules.json';
 
 const DEFAULT_RULES = {
