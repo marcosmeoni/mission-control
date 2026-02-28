@@ -14,10 +14,10 @@ export default function PublicViewPage() {
       <div className="p-2 border-b border-white/10 flex items-center justify-between gap-2">
         <div className="text-xs opacity-70">Shared deliverable</div>
         <div className="flex items-center gap-2">
-          <a href={downloadPdf} className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20">
+          <a href={downloadPdf} target="_blank" rel="noopener noreferrer" className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20">
             Descargar PDF
           </a>
-          <a href={download} className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20">
+          <a href={download} target="_blank" rel="noopener noreferrer" className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20">
             Descargar archivo
           </a>
         </div>
