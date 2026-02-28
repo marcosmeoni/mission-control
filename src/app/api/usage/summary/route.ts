@@ -13,6 +13,12 @@ interface AgentRow {
   workspace_id: string;
 }
 
+interface WorkspaceRow {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
@@ -31,9 +37,11 @@ export async function GET() {
 
     const mapRows = queryAll<SessionRow>('SELECT openclaw_session_id, agent_id FROM openclaw_sessions');
     const agentRows = queryAll<AgentRow>('SELECT id, name, workspace_id FROM agents');
+    const workspaceRows = queryAll<WorkspaceRow>('SELECT id, name, slug FROM workspaces');
 
     const mapBySession = new Map(mapRows.map((r) => [r.openclaw_session_id, r.agent_id]));
     const mapAgent = new Map(agentRows.map((a) => [a.id, a]));
+    const mapWorkspace = new Map(workspaceRows.map((w) => [w.id, w]));
 
     // Pricing (USD per 1M tokens)
     let pricing: Record<string, { inputPer1M: number; outputPer1M: number }> = {
@@ -51,7 +59,7 @@ export async function GET() {
 
     const total = { inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, estCostUsd: 0 };
     const byModel: Record<string, { inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
-    const byWorkspace: Record<string, { workspaceId: string; inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
+    const byWorkspace: Record<string, { workspaceId: string; workspaceName: string; workspaceSlug: string; inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
     const byAgent: Record<string, { agentId: string; agentName: string; workspaceId: string; model: string; inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
 
     for (const s of sessions) {
@@ -88,7 +96,17 @@ export async function GET() {
         const workspaceId = agent?.workspace_id || 'unknown';
 
         if (!byWorkspace[workspaceId]) {
-          byWorkspace[workspaceId] = { workspaceId, inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, estCostUsd: 0 };
+          const ws = mapWorkspace.get(workspaceId);
+          byWorkspace[workspaceId] = {
+            workspaceId,
+            workspaceName: ws?.name || workspaceId,
+            workspaceSlug: ws?.slug || workspaceId,
+            inputTokens: 0,
+            outputTokens: 0,
+            totalTokens: 0,
+            sessions: 0,
+            estCostUsd: 0,
+          };
         }
         byWorkspace[workspaceId].inputTokens += input;
         byWorkspace[workspaceId].outputTokens += output;

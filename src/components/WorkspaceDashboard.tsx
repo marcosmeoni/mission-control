@@ -116,7 +116,7 @@ export function WorkspaceDashboard() {
               <tbody>
                 {(usage.byWorkspace || []).map((r: any) => (
                   <tr key={r.workspaceId} className="border-b border-mc-border/40">
-                    <td className="py-2 pr-2">{r.workspaceId}</td>
+                    <td className="py-2 pr-2">{r.workspaceName || r.workspaceId}</td>
                     <td className="py-2 pr-2">{Number(r.totalTokens||0).toLocaleString()}</td>
                     <td className="py-2 pr-2">${Number(r.estCostUsd||0).toFixed(4)}</td>
                   </tr>
