@@ -5,7 +5,7 @@ const FILE_PATH = '/root/.openclaw/workspace/projects/personal/mission-control/d
 
 const DEFAULT_RULES = {
   rules: [
-    { key: 'spec-iac', patterns: ['terraform', 'terragrunt', 'iam', 'vpc', 'policy', 'módulo', 'modulo'] },
+    { key: 'spec-iac', patterns: ['iac', 'terraform', 'terragrunt', 'iam', 'vpc', 'policy', 'módulo', 'modulo', 'repo iac', 'infra as code'] },
     { key: 'spec-k8s', patterns: ['k8s', 'kubernetes', 'eks', 'oke', 'aks', 'ingress', 'hpa', 'karpenter', 'helm'] },
     { key: 'spec-ci', patterns: ['pipeline', 'github actions', 'gitlab ci', 'bitbucket', 'cicd', 'ci/'] },
     { key: 'spec-python', patterns: ['python', 'script', 'automation', 'bot', 'parser'] },

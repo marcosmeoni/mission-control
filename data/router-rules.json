@@ -1,0 +1,19 @@
+{
+  "rules": [
+    {
+      "key": "spec-iac",
+      "patterns": [
+        "iac",
+        "terraform",
+        "terragrunt",
+        "iam",
+        "vpc",
+        "policy",
+        "módulo",
+        "modulo",
+        "repo iac",
+        "infra as code"
+      ]
+    }
+  ]
+}
