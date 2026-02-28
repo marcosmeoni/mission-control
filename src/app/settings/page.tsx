@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [routerMsg, setRouterMsg] = useState<string | null>(null);
   const [pricingJson, setPricingJson] = useState('');
   const [pricingMsg, setPricingMsg] = useState<string | null>(null);
+  const [ledgerMsg, setLedgerMsg] = useState<string | null>(null);
 
   const calcPasswordStrength = (pwd: string) => {
     if (!pwd) return { label: '—', color: 'text-mc-text-secondary', score: 0 };
@@ -133,6 +134,21 @@ export default function SettingsPage() {
       else setPricingMsg('Pricing guardado ✅');
     } catch {
       setPricingMsg('JSON inválido. Revisá formato.');
+    }
+  };
+
+  const handleResetLedger = async () => {
+    setLedgerMsg(null);
+    const ok = window.confirm('¿Resetear contador acumulado de costo/tokens?');
+    if (!ok) return;
+
+    try {
+      const res = await fetch('/api/usage/reset-ledger', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) setLedgerMsg(data?.error || 'No se pudo resetear ledger');
+      else setLedgerMsg('Ledger reseteado ✅');
+    } catch {
+      setLedgerMsg('No se pudo resetear ledger');
     }
   };
 
@@ -438,9 +454,11 @@ export default function SettingsPage() {
             onChange={(e) => setPricingJson(e.target.value)}
             className="w-full min-h-[180px] px-4 py-2 bg-mc-bg border border-mc-border rounded text-mc-text font-mono text-xs focus:border-mc-accent focus:outline-none"
           />
-          <div className="mt-3 flex items-center gap-3">
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
             <button onClick={handleSavePricing} className="px-4 py-2 bg-mc-accent text-mc-bg rounded hover:bg-mc-accent/90">Guardar pricing</button>
+            <button onClick={handleResetLedger} className="px-4 py-2 border border-red-500/40 text-red-400 rounded hover:bg-red-500/10">Resetear acumulado</button>
             {pricingMsg && <p className="text-sm text-mc-text-secondary">{pricingMsg}</p>}
+            {ledgerMsg && <p className="text-sm text-mc-text-secondary">{ledgerMsg}</p>}
           </div>
         </section>
 
