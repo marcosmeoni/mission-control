@@ -7,18 +7,16 @@ export default function PublicViewPage() {
   const token = params?.token || '';
   const src = `/api/public/file?token=${encodeURIComponent(token)}`;
   const download = `/api/public/file?token=${encodeURIComponent(token)}&download=1`;
+  const downloadPdf = `/api/public/pdf?token=${encodeURIComponent(token)}`;
 
   return (
     <main className="min-h-screen bg-[#0f1117] text-white flex flex-col">
       <div className="p-2 border-b border-white/10 flex items-center justify-between gap-2">
         <div className="text-xs opacity-70">Shared deliverable</div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => window.print()}
-            className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20"
-          >
+          <a href={downloadPdf} className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20">
             Descargar PDF
-          </button>
+          </a>
           <a href={download} className="px-3 py-2 text-sm rounded bg-white/10 hover:bg-white/20">
             Descargar archivo
           </a>
