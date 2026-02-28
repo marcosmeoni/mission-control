@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Users, LayoutGrid, Activity } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { AgentsSidebar } from '@/components/AgentsSidebar';
 import { MissionQueue } from '@/components/MissionQueue';
@@ -11,13 +11,18 @@ import { LiveFeed } from '@/components/LiveFeed';
 import { SSEDebugPanel } from '@/components/SSEDebugPanel';
 import { useMissionControl } from '@/lib/store';
 import { useSSE } from '@/hooks/useSSE';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { debug } from '@/lib/debug';
 import type { Task, Workspace } from '@/lib/types';
+
+type MobileView = 'board' | 'agents' | 'feed';
 
 export default function WorkspacePage() {
   const params = useParams();
   const slug = params.slug as string;
-  
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const [mobileView, setMobileView] = useState<MobileView>('board');
+
   const {
     setAgents,
     setTasks,
@@ -30,10 +35,8 @@ export default function WorkspacePage() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [notFound, setNotFound] = useState(false);
 
-  // Connect to SSE for real-time updates
   useSSE();
 
-  // Load workspace data
   useEffect(() => {
     async function loadWorkspace() {
       try {
@@ -57,17 +60,15 @@ export default function WorkspacePage() {
     loadWorkspace();
   }, [slug, setIsLoading]);
 
-  // Load workspace-specific data
   useEffect(() => {
     if (!workspace) return;
-    
+
     const workspaceId = workspace.id;
 
     async function loadData() {
       try {
         debug.api('Loading workspace data...', { workspaceId });
-        
-        // Fetch workspace-scoped data
+
         const [agentsRes, tasksRes, eventsRes] = await Promise.all([
           fetch(`/api/agents?workspace_id=${workspaceId}`),
           fetch(`/api/tasks?workspace_id=${workspaceId}`),
@@ -88,7 +89,6 @@ export default function WorkspacePage() {
       }
     }
 
-    // Check OpenClaw connection separately (non-blocking)
     async function checkOpenClaw() {
       try {
         const controller = new AbortController();
@@ -109,10 +109,6 @@ export default function WorkspacePage() {
     loadData();
     checkOpenClaw();
 
-    // SSE is the primary real-time mechanism - these are fallback polls with longer intervals
-    // to reduce server load while providing redundancy
-
-    // Poll for events every 30 seconds (SSE fallback - increased from 5s)
     const eventPoll = setInterval(async () => {
       try {
         const res = await fetch('/api/events?limit=20');
@@ -122,9 +118,8 @@ export default function WorkspacePage() {
       } catch (error) {
         console.error('Failed to poll events:', error);
       }
-    }, 30000); // Increased from 5000 to 30000
+    }, 30000);
 
-    // Poll tasks as SSE fallback every 60 seconds (increased from 10s)
     const taskPoll = setInterval(async () => {
       try {
         const res = await fetch(`/api/tasks?workspace_id=${workspaceId}`);
@@ -146,9 +141,8 @@ export default function WorkspacePage() {
       } catch (error) {
         console.error('Failed to poll tasks:', error);
       }
-    }, 60000); // Increased from 10000 to 60000
+    }, 60000);
 
-    // Check OpenClaw connection every 30 seconds (kept as-is for monitoring)
     const connectionCheck = setInterval(async () => {
       try {
         const res = await fetch('/api/openclaw/status');
@@ -170,7 +164,7 @@ export default function WorkspacePage() {
 
   if (notFound) {
     return (
-      <div className="min-h-screen bg-mc-bg flex items-center justify-center">
+      <div className="min-h-screen bg-mc-bg flex items-center justify-center p-4">
         <div className="text-center">
           <div className="text-6xl mb-4">🔍</div>
           <h1 className="text-2xl font-bold mb-2">Workspace Not Found</h1>
@@ -204,18 +198,43 @@ export default function WorkspacePage() {
     <div className="h-screen flex flex-col bg-mc-bg overflow-hidden">
       <Header workspace={workspace} />
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Agents Sidebar */}
-        <AgentsSidebar workspaceId={workspace.id} />
+      {isDesktop ? (
+        <div className="flex-1 flex overflow-hidden">
+          <AgentsSidebar workspaceId={workspace.id} />
+          <MissionQueue workspaceId={workspace.id} />
+          <LiveFeed />
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {mobileView === 'board' && <MissionQueue workspaceId={workspace.id} />}
+            {mobileView === 'agents' && <AgentsSidebar workspaceId={workspace.id} mobileMode />}
+            {mobileView === 'feed' && <LiveFeed mobileMode />}
+          </div>
 
-        {/* Main Content Area */}
-        <MissionQueue workspaceId={workspace.id} />
+          <nav className="flex-shrink-0 flex border-t border-mc-border bg-mc-bg-secondary safe-bottom">
+            {([
+              { id: 'agents' as MobileView, icon: Users, label: 'Agents' },
+              { id: 'board' as MobileView, icon: LayoutGrid, label: 'Board' },
+              { id: 'feed' as MobileView, icon: Activity, label: 'Feed' },
+            ]).map(({ id, icon: Icon, label }) => (
+              <button
+                key={id}
+                onClick={() => setMobileView(id)}
+                className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors ${
+                  mobileView === id
+                    ? 'text-mc-accent'
+                    : 'text-mc-text-secondary active:text-mc-text'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </>
+      )}
 
-        {/* Live Feed */}
-        <LiveFeed />
-      </div>
-
-      {/* Debug Panel - only shows when debug mode enabled */}
       <SSEDebugPanel />
     </div>
   );

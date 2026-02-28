@@ -48,10 +48,8 @@ export function MissionQueue({ workspaceId }: MissionQueueProps) {
       return;
     }
 
-    // Optimistic update
     updateTaskStatus(draggedTask.id, targetStatus);
 
-    // Persist to API
     try {
       const res = await fetch(`/api/tasks/${draggedTask.id}`, {
         method: 'PATCH',
@@ -60,7 +58,6 @@ export function MissionQueue({ workspaceId }: MissionQueueProps) {
       });
 
       if (res.ok) {
-        // Add event
         addEvent({
           id: crypto.randomUUID(),
           type: targetStatus === 'done' ? 'task_completed' : 'task_status_changed',
@@ -69,7 +66,6 @@ export function MissionQueue({ workspaceId }: MissionQueueProps) {
           created_at: new Date().toISOString(),
         });
 
-        // Check if auto-dispatch should be triggered and execute it
         if (shouldTriggerAutoDispatch(draggedTask.status, targetStatus, draggedTask.assigned_agent_id)) {
           const result = await triggerAutoDispatch({
             taskId: draggedTask.id,
@@ -81,13 +77,11 @@ export function MissionQueue({ workspaceId }: MissionQueueProps) {
 
           if (!result.success) {
             console.error('Auto-dispatch failed:', result.error);
-            // Optionally show error to user here if needed
           }
         }
       }
     } catch (error) {
       console.error('Failed to update task status:', error);
-      // Revert on error
       updateTaskStatus(draggedTask.id, draggedTask.status);
     }
 
@@ -97,43 +91,44 @@ export function MissionQueue({ workspaceId }: MissionQueueProps) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-3 border-b border-mc-border flex items-center justify-between">
+      <div className="p-3 border-b border-mc-border flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <ChevronRight className="w-4 h-4 text-mc-text-secondary" />
           <span className="text-sm font-medium uppercase tracking-wider">Mission Queue</span>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-mc-accent-pink text-mc-bg rounded text-sm font-medium hover:bg-mc-accent-pink/90"
+          className="flex items-center gap-2 px-3 py-1.5 bg-mc-accent-pink text-mc-bg rounded text-sm font-medium hover:bg-mc-accent-pink/90 min-h-[36px]"
         >
           <Plus className="w-4 h-4" />
-          New Task
+          <span className="hidden sm:inline">New Task</span>
+          <span className="sm:hidden">New</span>
         </button>
       </div>
 
       {/* Kanban Columns */}
-      <div className="flex-1 flex gap-3 p-3 overflow-x-auto">
+      <div className="flex-1 flex gap-2 sm:gap-3 p-2 sm:p-3 overflow-x-auto">
         {COLUMNS.map((column) => {
           const columnTasks = getTasksByStatus(column.id);
           return (
             <div
               key={column.id}
-              className={`flex-1 min-w-[220px] max-w-[300px] flex flex-col bg-mc-bg rounded-lg border border-mc-border/50 border-t-2 ${column.color}`}
+              className={`flex-shrink-0 w-[180px] sm:w-auto sm:flex-1 sm:min-w-[200px] sm:max-w-[300px] flex flex-col bg-mc-bg rounded-lg border border-mc-border/50 border-t-2 ${column.color}`}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
             >
               {/* Column Header */}
-              <div className="p-2 border-b border-mc-border flex items-center justify-between">
-                <span className="text-xs font-medium uppercase text-mc-text-secondary">
+              <div className="p-2 border-b border-mc-border flex items-center justify-between flex-shrink-0">
+                <span className="text-xs font-medium uppercase text-mc-text-secondary truncate">
                   {column.label}
                 </span>
-                <span className="text-xs bg-mc-bg-tertiary px-2 py-0.5 rounded text-mc-text-secondary">
+                <span className="text-xs bg-mc-bg-tertiary px-2 py-0.5 rounded text-mc-text-secondary flex-shrink-0 ml-1">
                   {columnTasks.length}
                 </span>
               </div>
 
               {/* Tasks */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              <div className="flex-1 overflow-y-auto p-1.5 sm:p-2 space-y-2">
                 {columnTasks.map((task) => (
                   <TaskCard
                     key={task.id}
@@ -199,24 +194,22 @@ function TaskCard({ task, onDragStart, onClick, isDragging }: TaskCardProps) {
       </div>
 
       {/* Card content */}
-      <div className="p-4">
+      <div className="p-3 sm:p-4">
         {/* Title */}
-        <h4 className="text-sm font-medium leading-snug line-clamp-2 mb-3">
+        <h4 className="text-sm font-medium leading-snug line-clamp-2 mb-2 sm:mb-3 break-words">
           {task.title}
         </h4>
         
-        {/* Planning mode indicator */}
         {isPlanning && (
-          <div className="flex items-center gap-2 mb-3 py-2 px-3 bg-purple-500/10 rounded-md border border-purple-500/20">
+          <div className="flex items-center gap-2 mb-2 sm:mb-3 py-2 px-2 sm:px-3 bg-purple-500/10 rounded-md border border-purple-500/20">
             <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse flex-shrink-0" />
             <span className="text-xs text-purple-400 font-medium">Continue planning</span>
           </div>
         )}
 
-        {/* Assigned agent */}
         {task.assigned_agent && (
-          <div className="flex items-center gap-2 mb-3 py-1.5 px-2 bg-mc-bg-tertiary/50 rounded">
-            <span className="text-base">{(task.assigned_agent as unknown as { avatar_emoji: string }).avatar_emoji}</span>
+          <div className="flex items-center gap-2 mb-2 sm:mb-3 py-1.5 px-2 bg-mc-bg-tertiary/50 rounded">
+            <span className="text-base flex-shrink-0">{(task.assigned_agent as unknown as { avatar_emoji: string }).avatar_emoji}</span>
             <span className="text-xs text-mc-text-secondary truncate">
               {(task.assigned_agent as unknown as { name: string }).name}
             </span>
@@ -224,14 +217,14 @@ function TaskCard({ task, onDragStart, onClick, isDragging }: TaskCardProps) {
         )}
 
         {/* Footer: priority + timestamp */}
-        <div className="flex items-center justify-between pt-2 border-t border-mc-border/20">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between pt-2 border-t border-mc-border/20 gap-2">
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             <div className={`w-1.5 h-1.5 rounded-full ${priorityDots[task.priority]}`} />
             <span className={`text-xs capitalize ${priorityStyles[task.priority]}`}>
               {task.priority}
             </span>
           </div>
-          <span className="text-[10px] text-mc-text-secondary/60">
+          <span className="text-[10px] text-mc-text-secondary/60 truncate">
             {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
           </span>
         </div>
