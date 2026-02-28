@@ -1,13 +1,25 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, ChevronRight, ChevronLeft, Zap, ZapOff, Loader2, Search } from 'lucide-react';
+import { Plus, ChevronRight, ChevronLeft, Zap, ZapOff, Loader2, Search, MessagesSquare, Users } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
-import type { Agent, AgentStatus, OpenClawSession } from '@/lib/types';
+import type { Agent, AgentStatus, OpenClawSession, Task } from '@/lib/types';
 import { AgentModal } from './AgentModal';
 import { DiscoverAgentsModal } from './DiscoverAgentsModal';
 
 type FilterTab = 'all' | 'working' | 'standby';
+type SidebarView = 'people' | 'rooms';
+
+interface RoomItem {
+  conversation_id: string;
+  task_id: string;
+  task_title: string;
+  task_status: string;
+  task_priority: string;
+  last_message?: string;
+  last_message_at?: string;
+  message_count: number;
+}
 
 interface AgentsSidebarProps {
   workspaceId?: string;
@@ -15,7 +27,7 @@ interface AgentsSidebarProps {
 }
 
 export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
-  const { agents, selectedAgent, setSelectedAgent, agentOpenClawSessions, setAgentOpenClawSession } = useMissionControl();
+  const { agents, tasks, selectedAgent, setSelectedAgent, setSelectedTask, agentOpenClawSessions, setAgentOpenClawSession } = useMissionControl();
   const [filter, setFilter] = useState<FilterTab>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
@@ -23,6 +35,9 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
   const [connectingAgentId, setConnectingAgentId] = useState<string | null>(null);
   const [activeSubAgents, setActiveSubAgents] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [sidebarView, setSidebarView] = useState<SidebarView>('people');
+  const [rooms, setRooms] = useState<RoomItem[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
 
   const toggleMinimize = () => setIsMinimized(!isMinimized);
 
@@ -66,6 +81,29 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
     const interval = setInterval(loadSubAgentCount, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+
+    const loadRooms = async () => {
+      setLoadingRooms(true);
+      try {
+        const res = await fetch(`/api/rooms?workspace_id=${workspaceId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setRooms(data.rooms || []);
+        }
+      } catch (error) {
+        console.error('Failed to load rooms:', error);
+      } finally {
+        setLoadingRooms(false);
+      }
+    };
+
+    loadRooms();
+    const timer = setInterval(loadRooms, 10000);
+    return () => clearInterval(timer);
+  }, [workspaceId]);
 
   const handleConnectToOpenClaw = async (agent: Agent, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -159,29 +197,55 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
               </div>
             )}
 
-            {/* Filter Tabs */}
+            {/* Top view switch */}
             <div className="flex gap-1 mt-2">
-              {(['all', 'working', 'standby'] as FilterTab[]).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setFilter(tab)}
-                  className={`px-3 py-1.5 text-xs rounded uppercase min-h-[32px] ${
-                    filter === tab
-                      ? 'bg-mc-accent text-mc-bg font-medium'
-                      : 'text-mc-text-secondary hover:bg-mc-bg-tertiary'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
+              <button
+                onClick={() => setSidebarView('people')}
+                className={`px-3 py-1.5 text-xs rounded min-h-[32px] flex items-center gap-1 ${
+                  sidebarView === 'people'
+                    ? 'bg-mc-accent text-mc-bg font-medium'
+                    : 'text-mc-text-secondary hover:bg-mc-bg-tertiary'
+                }`}
+              >
+                <Users className="w-3 h-3" /> People
+              </button>
+              <button
+                onClick={() => setSidebarView('rooms')}
+                className={`px-3 py-1.5 text-xs rounded min-h-[32px] flex items-center gap-1 ${
+                  sidebarView === 'rooms'
+                    ? 'bg-mc-accent text-mc-bg font-medium'
+                    : 'text-mc-text-secondary hover:bg-mc-bg-tertiary'
+                }`}
+              >
+                <MessagesSquare className="w-3 h-3" /> Rooms
+              </button>
             </div>
+
+            {/* Filter Tabs (people mode) */}
+            {sidebarView === 'people' && (
+              <div className="flex gap-1 mt-2">
+                {(['all', 'working', 'standby'] as FilterTab[]).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setFilter(tab)}
+                    className={`px-3 py-1.5 text-xs rounded uppercase min-h-[32px] ${
+                      filter === tab
+                        ? 'bg-mc-accent text-mc-bg font-medium'
+                        : 'text-mc-text-secondary hover:bg-mc-bg-tertiary'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
 
-      {/* Agent List */}
+      {/* Agent / Rooms List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {filteredAgents.map((agent) => {
+        {sidebarView === 'people' && filteredAgents.map((agent) => {
           const openclawSession = agentOpenClawSessions[agent.id];
 
           if (!expanded) {
@@ -202,16 +266,6 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
                   {!!agent.is_master && (
                     <span className="absolute -top-1 -right-1 text-xs text-mc-accent-yellow">★</span>
                   )}
-                  <span
-                    className={`absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${
-                      agent.status === 'working' ? 'bg-mc-accent-green' :
-                      agent.status === 'standby' ? 'bg-mc-text-secondary' :
-                      'bg-gray-500'
-                    }`}
-                  />
-                  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-mc-bg text-mc-text text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 border border-mc-border">
-                    {agent.name}
-                  </div>
                 </button>
               </div>
             );
@@ -232,40 +286,15 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
                 }}
                 className="w-full flex items-center gap-3 p-2 sm:p-3 text-left min-h-[48px]"
               >
-                {/* Avatar */}
-                <div className="text-2xl relative flex-shrink-0">
-                  {agent.avatar_emoji}
-                  {openclawSession && (
-                    <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-mc-bg-secondary" />
-                  )}
-                </div>
-
-                {/* Info */}
+                <div className="text-2xl relative flex-shrink-0">{agent.avatar_emoji}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm truncate">{agent.name}</span>
-                    {!!agent.is_master && (
-                      <span className="text-xs text-mc-accent-yellow flex-shrink-0">★</span>
-                    )}
+                    {!!agent.is_master && <span className="text-xs text-mc-accent-yellow flex-shrink-0">★</span>}
                   </div>
-                  <div className="text-xs text-mc-text-secondary truncate flex items-center gap-1">
-                    {agent.role}
-                    {agent.source === 'gateway' && (
-                      <span className="text-[10px] px-1 py-0 bg-blue-500/20 text-blue-400 rounded flex-shrink-0" title="Imported from Gateway">
-                        GW
-                      </span>
-                    )}
-                  </div>
+                  <div className="text-xs text-mc-text-secondary truncate">{agent.role}</div>
                 </div>
-
-                {/* Status */}
-                <span
-                  className={`text-xs px-2 py-0.5 rounded uppercase flex-shrink-0 ${getStatusBadge(
-                    agent.status
-                  )}`}
-                >
-                  {agent.status}
-                </span>
+                <span className={`text-xs px-2 py-0.5 rounded uppercase flex-shrink-0 ${getStatusBadge(agent.status)}`}>{agent.status}</span>
               </button>
 
               {!!agent.is_master && (
@@ -279,28 +308,37 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
                         : 'bg-mc-bg text-mc-text-secondary hover:bg-mc-bg-tertiary hover:text-mc-text'
                     }`}
                   >
-                    {isConnecting ? (
-                      <>
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                        <span>Connecting...</span>
-                      </>
-                    ) : openclawSession ? (
-                      <>
-                        <Zap className="w-3 h-3" />
-                        <span>OpenClaw Connected</span>
-                      </>
-                    ) : (
-                      <>
-                        <ZapOff className="w-3 h-3" />
-                        <span>Connect to OpenClaw</span>
-                      </>
-                    )}
+                    {isConnecting ? <><Loader2 className="w-3 h-3 animate-spin" /><span>Connecting...</span></> : openclawSession ? <><Zap className="w-3 h-3" /><span>OpenClaw Connected</span></> : <><ZapOff className="w-3 h-3" /><span>Connect to OpenClaw</span></>}
                   </button>
                 </div>
               )}
             </div>
           );
         })}
+
+        {sidebarView === 'rooms' && (
+          <>
+            {loadingRooms && <div className="text-xs text-mc-text-secondary p-2">Loading rooms…</div>}
+            {!loadingRooms && rooms.length === 0 && <div className="text-xs text-mc-text-secondary p-2">No rooms yet for this workspace.</div>}
+            {rooms.map((room) => (
+              <button
+                key={room.conversation_id}
+                onClick={() => {
+                  const task = tasks.find((t) => t.id === room.task_id) as Task | undefined;
+                  if (task) setSelectedTask(task);
+                }}
+                className="w-full text-left p-2 rounded hover:bg-mc-bg-tertiary border border-transparent hover:border-mc-border"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-medium truncate">{room.task_title}</div>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-mc-bg text-mc-text-secondary uppercase">{room.task_status}</span>
+                </div>
+                <div className="text-xs text-mc-text-secondary truncate mt-1">{room.last_message || 'Sin mensajes todavía'}</div>
+                <div className="text-[10px] text-mc-text-secondary mt-1">{room.message_count} msgs</div>
+              </button>
+            ))}
+          </>
+        )}
       </div>
 
       {/* Add Agent / Discover Buttons */}
