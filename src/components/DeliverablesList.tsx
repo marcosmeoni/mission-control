@@ -6,7 +6,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { FileText, Link as LinkIcon, Package, ExternalLink, Eye, FileCode } from 'lucide-react';
+import { FileText, Link as LinkIcon, Package, ExternalLink, Eye, FileCode, Share2 } from 'lucide-react';
 import { debug } from '@/lib/debug';
 import type { TaskDeliverable } from '@/lib/types';
 
@@ -106,6 +106,28 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
     window.open(`/editor?path=${encodeURIComponent(deliverable.path)}`, '_blank');
   };
 
+  const handleShare = async (deliverable: TaskDeliverable) => {
+    if (!deliverable.path) return;
+    const res = await fetch('/api/share-links', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path: deliverable.path }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.token) {
+      alert(data?.error || 'No se pudo generar link público');
+      return;
+    }
+
+    const url = `${window.location.origin}/public/${data.token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert(`Link público copiado:\n${url}`);
+    } catch {
+      alert(`Link público:\n${url}`);
+    }
+  };
+
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleDateString('en-US', {
@@ -181,6 +203,16 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
                     title="Open in editor"
                   >
                     <FileCode className="w-4 h-4" />
+                  </button>
+                )}
+                {/* Share public link */}
+                {deliverable.path && (
+                  <button
+                    onClick={() => handleShare(deliverable)}
+                    className="flex-shrink-0 p-1.5 hover:bg-mc-bg-tertiary rounded text-mc-accent-cyan"
+                    title="Crear link público"
+                  >
+                    <Share2 className="w-4 h-4" />
                   </button>
                 )}
                 {/* Open/Reveal button */}

@@ -39,8 +39,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Public login routes
-  if (pathname === '/login' || pathname === '/api/auth/login' || pathname === '/api/auth/logout') {
+  // Public routes
+  if (
+    pathname === '/login' ||
+    pathname === '/api/auth/login' ||
+    pathname === '/api/auth/logout' ||
+    pathname.startsWith('/public/') ||
+    pathname.startsWith('/api/public/')
+  ) {
     return NextResponse.next();
   }
 
