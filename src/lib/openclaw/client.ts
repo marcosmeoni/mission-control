@@ -264,33 +264,38 @@ export class OpenClawClient extends EventEmitter {
               const role = 'operator';
               const scopes = ['operator.admin'];
 
-              // Build device identity for the connect params
+              // Build device identity for the connect params (optional)
               const clientId = 'cli';
+              const useDeviceAuth = process.env.OPENCLAW_USE_DEVICE_AUTH === 'true';
               let device: Record<string, unknown> | undefined;
-              if (this.deviceIdentity) {
-                const payload = buildDeviceAuthPayload({
-                  deviceId: this.deviceIdentity.deviceId,
-                  clientId,
-                  clientMode: 'ui',
-                  role,
-                  scopes,
-                  signedAtMs,
-                  token: this.token || null,
-                  nonce,
-                });
-                const signature = signDevicePayload(this.deviceIdentity.privateKeyPem, payload);
-                device = {
-                  id: this.deviceIdentity.deviceId,
-                  publicKey: publicKeyRawBase64Url(this.deviceIdentity.publicKeyPem),
-                  signature,
-                  signedAt: signedAtMs,
-                  nonce,
-                };
-                console.log('[OpenClaw] Device identity prepared:', {
-                  deviceId: this.deviceIdentity.deviceId,
-                  hasSignature: !!signature,
-                  nonce,
-                });
+              if (useDeviceAuth && this.deviceIdentity) {
+                try {
+                  const payload = buildDeviceAuthPayload({
+                    deviceId: this.deviceIdentity.deviceId,
+                    clientId,
+                    clientMode: 'ui',
+                    role,
+                    scopes,
+                    signedAtMs,
+                    token: this.token || null,
+                    nonce,
+                  });
+                  const signature = signDevicePayload(this.deviceIdentity.privateKeyPem, payload);
+                  device = {
+                    id: this.deviceIdentity.deviceId,
+                    publicKey: publicKeyRawBase64Url(this.deviceIdentity.publicKeyPem),
+                    signature,
+                    signedAt: signedAtMs,
+                    nonce,
+                  };
+                  console.log('[OpenClaw] Device identity prepared:', {
+                    deviceId: this.deviceIdentity.deviceId,
+                    hasSignature: !!signature,
+                    nonce,
+                  });
+                } catch (err) {
+                  console.warn('[OpenClaw] Device auth disabled due signing error, continuing token-only auth');
+                }
               }
 
               const response = {
