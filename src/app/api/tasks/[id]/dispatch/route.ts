@@ -235,10 +235,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       urgent: '🔴'
     }[task.priority] || '⚪';
 
-    // Get project path for deliverables
-    const projectsPath = getProjectsPath();
+    // Prefer OpenClaw agent workspace for deliverables (isolated per agent)
     const projectDir = task.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const taskProjectDir = `${projectsPath}/${projectDir}`;
+    const openclawAgentWorkspace = agent.gateway_agent_id
+      ? `/root/.openclaw/workspace/agents/${agent.gateway_agent_id}`
+      : null;
+    const fallbackProjectsPath = getProjectsPath();
+    const taskProjectDir = openclawAgentWorkspace
+      ? `${openclawAgentWorkspace}/projects/${projectDir}`
+      : `${fallbackProjectsPath}/${projectDir}`;
     // Use local loopback URL so agent curl calls work from server host regardless of public domain/proxy
     const localPort = process.env.PORT || '80';
     const missionControlUrl = localPort === '80' ? 'http://127.0.0.1' : `http://127.0.0.1:${localPort}`;
