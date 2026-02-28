@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
   const allowedPaths = [
     process.env.WORKSPACE_BASE_PATH?.replace(/^~/, process.env.HOME || ''),
     process.env.PROJECTS_PATH?.replace(/^~/, process.env.HOME || ''),
+    '/root/.openclaw/workspace/agents',
+    '/root/.openclaw/workspace/projects/personal/mission-control',
   ].filter(Boolean) as string[];
 
   const isAllowed = allowedPaths.some(allowed =>
