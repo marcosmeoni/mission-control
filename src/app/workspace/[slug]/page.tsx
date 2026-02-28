@@ -200,9 +200,9 @@ export default function WorkspacePage() {
 
       {isDesktop ? (
         <div className="flex-1 flex overflow-hidden">
-          <AgentsSidebar workspaceId={workspace.id} />
           <MissionQueue workspaceId={workspace.id} />
           <LiveFeed />
+          <AgentsSidebar workspaceId={workspace.id} />
         </div>
       ) : (
         <>

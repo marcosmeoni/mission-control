@@ -76,6 +76,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       [id]
     );
 
+    // Natural inter-agent ping: if message mentions @agentName, auto-ack from that agent
+    const mention = content.match(/@([a-zA-Z0-9_-]+)/);
+    if (mention) {
+      const mentionedName = mention[1];
+      const mentioned = queryOne<{ id: string; name: string }>(
+        `SELECT a.id, a.name
+         FROM agents a
+         INNER JOIN tasks t ON t.workspace_id = a.workspace_id
+         WHERE t.id = ? AND (LOWER(a.name) = LOWER(?) OR LOWER(a.gateway_agent_id) = LOWER(?))
+         LIMIT 1`,
+        [taskId, mentionedName, mentionedName]
+      );
+
+      if (mentioned && mentioned.id !== senderAgentId) {
+        const ackId = uuidv4();
+        run(
+          `INSERT INTO messages (id, conversation_id, sender_agent_id, content, message_type, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [ackId, conversationId, mentioned.id, `✅ Recibido @${mentioned.name}. Tomo este punto y vuelvo con update.`, 'task_update', new Date().toISOString()]
+        );
+      }
+    }
+
     return NextResponse.json(msg, { status: 201 });
   } catch {
     return NextResponse.json({ error: 'Failed to post message' }, { status: 500 });

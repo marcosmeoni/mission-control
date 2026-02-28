@@ -50,6 +50,12 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
     }
   };
 
+  const quickMessage = (text: string) => setContent(text);
+
+  const mentionAgent = (agentName: string) => {
+    setContent((c) => `${c}${c ? ' ' : ''}@${agentName} `);
+  };
+
   return (
     <div className="space-y-3">
       <div className="max-h-[50vh] overflow-y-auto border border-mc-border rounded p-3 space-y-2 bg-mc-bg">
@@ -61,6 +67,16 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
             </div>
             <div className="whitespace-pre-wrap">{m.content}</div>
           </div>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => quickMessage('Estado rápido: ¿cómo venimos con esta tarea?')} className="text-xs px-2 py-1 rounded border border-mc-border">/status</button>
+        <button onClick={() => quickMessage('Bloqueo detectado. ¿Qué necesitás para destrabar?')} className="text-xs px-2 py-1 rounded border border-mc-border">/block</button>
+        <button onClick={() => quickMessage('Necesito handoff corto: objetivo, avance, riesgo, próximo paso.')} className="text-xs px-2 py-1 rounded border border-mc-border">/handoff</button>
+        <div className="text-xs text-mc-text-secondary self-center">Mencionar:</div>
+        {agents.slice(0, 5).map((a) => (
+          <button key={a.id} onClick={() => mentionAgent(a.name)} className="text-xs px-2 py-1 rounded border border-mc-border text-mc-text-secondary">@{a.name}</button>
         ))}
       </div>
 
