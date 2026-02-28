@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, ChevronRight, GripVertical } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import { triggerAutoDispatch, shouldTriggerAutoDispatch } from '@/lib/auto-dispatch';
@@ -23,10 +23,16 @@ const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
 ];
 
 export function MissionQueue({ workspaceId }: MissionQueueProps) {
-  const { tasks, updateTaskStatus, addEvent } = useMissionControl();
+  const { tasks, selectedTask, setSelectedTask, updateTaskStatus, addEvent } = useMissionControl();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+
+  useEffect(() => {
+    if (selectedTask) {
+      setEditingTask(selectedTask);
+    }
+  }, [selectedTask]);
 
   const getTasksByStatus = (status: TaskStatus) =>
     tasks.filter((task) => task.status === status);
@@ -149,7 +155,14 @@ export function MissionQueue({ workspaceId }: MissionQueueProps) {
         <TaskModal onClose={() => setShowCreateModal(false)} workspaceId={workspaceId} />
       )}
       {editingTask && (
-        <TaskModal task={editingTask} onClose={() => setEditingTask(null)} workspaceId={workspaceId} />
+        <TaskModal
+          task={editingTask}
+          onClose={() => {
+            setEditingTask(null);
+            setSelectedTask(null);
+          }}
+          workspaceId={workspaceId}
+        />
       )}
     </div>
   );
