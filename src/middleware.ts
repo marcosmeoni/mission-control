@@ -1,97 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// API bearer token (optional)
 const MC_API_TOKEN = process.env.MC_API_TOKEN;
-if (!MC_API_TOKEN) {
-  console.warn('[SECURITY WARNING] MC_API_TOKEN not set - API authentication is DISABLED (local dev mode)');
-}
+const AUTH_USER = process.env.MC_BASIC_AUTH_USER;
+const AUTH_PASS = process.env.MC_BASIC_AUTH_PASS;
+const LOGIN_ENABLED = Boolean(AUTH_USER && AUTH_PASS);
 
-// Basic auth for dashboard + API (optional but recommended for internet-exposed instances)
-const MC_BASIC_AUTH_USER = process.env.MC_BASIC_AUTH_USER;
-const MC_BASIC_AUTH_PASS = process.env.MC_BASIC_AUTH_PASS;
-const BASIC_AUTH_ENABLED = Boolean(MC_BASIC_AUTH_USER && MC_BASIC_AUTH_PASS);
-if (!BASIC_AUTH_ENABLED) {
-  console.warn('[SECURITY WARNING] Basic auth is DISABLED (set MC_BASIC_AUTH_USER + MC_BASIC_AUTH_PASS)');
-}
-
-/**
- * Check if a request originates from the same host (browser UI).
- * Same-origin browser requests include a Referer or Origin header
- * pointing to the MC server itself. Server-side render fetches
- * (Next.js RSC) come from the same process and have no Origin.
- */
-function isSameOriginRequest(request: NextRequest): boolean {
-  const host = request.headers.get('host');
-  if (!host) return false;
-
-  // Server-side fetches from Next.js (no origin/referer) — same process
-  const origin = request.headers.get('origin');
-  const referer = request.headers.get('referer');
-
-  // If neither origin nor referer is set, this is likely a server-side
-  // fetch or a direct curl. Require auth for these (external API calls).
-  if (!origin && !referer) return false;
-
-  // Check if Origin matches the host
-  if (origin) {
-    try {
-      const originUrl = new URL(origin);
-      if (originUrl.host === host) return true;
-    } catch {
-      // Invalid origin header
-    }
-  }
-
-  // Check if Referer matches the host
-  if (referer) {
-    try {
-      const refererUrl = new URL(referer);
-      if (refererUrl.host === host) return true;
-    } catch {
-      // Invalid referer header
-    }
-  }
-
-  return false;
-}
-
-// Demo mode — read-only, blocks all mutations
 const DEMO_MODE = process.env.DEMO_MODE === 'true';
-if (DEMO_MODE) {
-  console.log('[DEMO] Running in demo mode — all write operations are blocked');
+
+function expectedSessionToken(): string | null {
+  if (!AUTH_USER || !AUTH_PASS) return null;
+  return btoa(`${AUTH_USER}:${AUTH_PASS}`);
 }
 
-function unauthorizedBasicAuth(): NextResponse {
-  const response = new NextResponse('Authentication required', { status: 401 });
-  response.headers.set('WWW-Authenticate', 'Basic realm="Mission Control"');
-  return response;
-}
-
-function hasValidBasicAuth(request: NextRequest): boolean {
-  if (!BASIC_AUTH_ENABLED) return true;
-
+function isApiAuthorized(request: NextRequest): boolean {
+  // API bearer token support for automation / external callers
+  if (!MC_API_TOKEN) return false;
   const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Basic ')) return false;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+  return authHeader.substring(7) === MC_API_TOKEN;
+}
 
-  try {
-    const base64 = authHeader.substring(6);
-    const decoded = atob(base64);
-    const idx = decoded.indexOf(':');
-    if (idx < 0) return false;
-
-    const user = decoded.slice(0, idx);
-    const pass = decoded.slice(idx + 1);
-
-    return user === MC_BASIC_AUTH_USER && pass === MC_BASIC_AUTH_PASS;
-  } catch {
-    return false;
-  }
+function isLoggedIn(request: NextRequest): boolean {
+  if (!LOGIN_ENABLED) return true;
+  const cookie = request.cookies.get('mc_session')?.value;
+  const expected = expectedSessionToken();
+  return Boolean(cookie && expected && cookie === expected);
 }
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Skip auth for static Next assets and favicon
+  // Skip static assets
   if (
     pathname.startsWith('/_next/') ||
     pathname === '/favicon.ico' ||
@@ -100,23 +39,37 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Basic auth for UI + API when enabled
-  if (!hasValidBasicAuth(request)) {
-    return unauthorizedBasicAuth();
+  // Public login routes
+  if (pathname === '/login' || pathname === '/api/auth/login' || pathname === '/api/auth/logout') {
+    return NextResponse.next();
   }
 
-  // Non-API routes: basic auth already checked
+  const loggedIn = isLoggedIn(request);
+
+  // Non-API routes: redirect to login page if needed
   if (!pathname.startsWith('/api/')) {
-    // Add demo mode header for UI detection
+    if (!loggedIn) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.searchParams.set('next', pathname);
+      return NextResponse.redirect(url);
+    }
+
     if (DEMO_MODE) {
       const response = NextResponse.next();
       response.headers.set('X-Demo-Mode', 'true');
       return response;
     }
+
     return NextResponse.next();
   }
 
-  // Demo mode: block all write operations
+  // API routes: allow if logged-in cookie OR bearer token
+  if (!loggedIn && !isApiAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Demo mode write protection
   if (DEMO_MODE) {
     const method = request.method.toUpperCase();
     if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
@@ -125,45 +78,6 @@ export function middleware(request: NextRequest) {
         { status: 403 }
       );
     }
-    return NextResponse.next();
-  }
-
-  // If MC_API_TOKEN is not set, auth is disabled (dev mode)
-  if (!MC_API_TOKEN) {
-    return NextResponse.next();
-  }
-
-  // Allow same-origin browser requests (UI fetching its own API)
-  if (isSameOriginRequest(request)) {
-    return NextResponse.next();
-  }
-
-  // Special case: /api/events/stream (SSE) - allow token as query param
-  if (pathname === '/api/events/stream') {
-    const queryToken = request.nextUrl.searchParams.get('token');
-    if (queryToken && queryToken === MC_API_TOKEN) {
-      return NextResponse.next();
-    }
-    // Fall through to header check below
-  }
-
-  // Check Authorization header for bearer token
-  const authHeader = request.headers.get('authorization');
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
-  }
-
-  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-  
-  if (token !== MC_API_TOKEN) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401 }
-    );
   }
 
   return NextResponse.next();
