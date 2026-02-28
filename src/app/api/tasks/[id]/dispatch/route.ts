@@ -99,11 +99,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const now = new Date().toISOString();
 
+    const sessionSlug = `${task.workspace_id}-${agent.name}-${agent.id.slice(0, 8)}`
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
     if (!session) {
-      // Create session record
+      // Create session record (workspace-scoped, unique per imported agent)
       const sessionId = uuidv4();
-      const openclawSessionId = `mission-control-${agent.name.toLowerCase().replace(/\s+/g, '-')}`;
-      
+      const openclawSessionId = `mission-control-${sessionSlug}`;
+
       run(
         `INSERT INTO openclaw_sessions (id, agent_id, openclaw_session_id, channel, status, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -128,6 +134,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { error: 'Failed to create agent session' },
         { status: 500 }
       );
+    }
+
+    // Migrate legacy shared session IDs to workspace-scoped IDs to avoid cross-workspace collisions
+    const legacySessionId = `mission-control-${agent.name.toLowerCase().replace(/\s+/g, '-')}`;
+    if (session.openclaw_session_id === legacySessionId) {
+      const newSessionId = `mission-control-${sessionSlug}`;
+      run(
+        'UPDATE openclaw_sessions SET openclaw_session_id = ?, updated_at = ? WHERE id = ?',
+        [newSessionId, now, session.id]
+      );
+      session.openclaw_session_id = newSessionId;
     }
 
     // Build task message for agent
