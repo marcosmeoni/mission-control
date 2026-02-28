@@ -1,6 +1,20 @@
 {
   "rules": [
     {
+      "key": "spec-finops",
+      "patterns": [
+        "cost",
+        "finops",
+        "spend",
+        "billing",
+        "rightsiz",
+        "oci",
+        "reporte de costos",
+        "cost report",
+        "informe de costos"
+      ]
+    },
+    {
       "key": "spec-git",
       "patterns": [
         "repo",

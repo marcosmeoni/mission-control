@@ -12,7 +12,7 @@ const DEFAULT_RULES = {
     { key: 'spec-python', patterns: ['python', 'script', 'automation', 'bot', 'parser'] },
     { key: 'spec-ansible', patterns: ['ansible', 'playbook', 'hardening', 'inventory'] },
     { key: 'spec-observability', patterns: ['slo', 'sli', 'grafana', 'prometheus', 'alert', 'observab'] },
-    { key: 'spec-finops', patterns: ['cost', 'finops', 'spend', 'billing', 'rightsiz', 'oci'] },
+    { key: 'spec-finops', patterns: ['cost', 'finops', 'spend', 'billing', 'rightsiz', 'oci', 'reporte de costos', 'cost report', 'informe de costos'] },
     { key: 'spec-secops-cloud', patterns: ['security', 'secrets', 'least privilege', 'posture', 'compliance'] },
     { key: 'spec-release-manager', patterns: ['release', 'deploy window', 'change management', 'cutover'] },
     { key: 'spec-incident-commander', patterns: ['incident', 'sev1', 'sev2', 'sev3', 'outage', 'rca', 'postmortem'] },
