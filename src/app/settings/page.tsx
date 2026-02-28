@@ -23,6 +23,8 @@ export default function SettingsPage() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [routerRulesJson, setRouterRulesJson] = useState('');
   const [routerMsg, setRouterMsg] = useState<string | null>(null);
+  const [pricingJson, setPricingJson] = useState('');
+  const [pricingMsg, setPricingMsg] = useState<string | null>(null);
 
   const calcPasswordStrength = (pwd: string) => {
     if (!pwd) return { label: '—', color: 'text-mc-text-secondary', score: 0 };
@@ -58,6 +60,11 @@ export default function SettingsPage() {
       .then((r) => r.json())
       .then((data) => setRouterRulesJson(JSON.stringify(data, null, 2)))
       .catch(() => setRouterRulesJson('{\n  "rules": []\n}'));
+
+    fetch('/api/usage/pricing')
+      .then((r) => r.json())
+      .then((data) => setPricingJson(JSON.stringify(data, null, 2)))
+      .catch(() => setPricingJson('{\n  "pricing": {}\n}'));
   }, []);
 
   const handleSave = async () => {
@@ -109,6 +116,23 @@ export default function SettingsPage() {
       }
     } catch {
       setRouterMsg('JSON inválido. Revisá formato.');
+    }
+  };
+
+  const handleSavePricing = async () => {
+    setPricingMsg(null);
+    try {
+      const parsed = JSON.parse(pricingJson);
+      const res = await fetch('/api/usage/pricing', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(parsed),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) setPricingMsg(data?.error || 'No se pudo guardar pricing');
+      else setPricingMsg('Pricing guardado ✅');
+    } catch {
+      setPricingMsg('JSON inválido. Revisá formato.');
     }
   };
 
@@ -397,6 +421,26 @@ export default function SettingsPage() {
               Guardar mapping
             </button>
             {routerMsg && <p className="text-sm text-mc-text-secondary">{routerMsg}</p>}
+          </div>
+        </section>
+
+        {/* Model pricing for cost estimation */}
+        <section className="mb-8 p-6 bg-mc-bg-secondary border border-mc-border rounded-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings className="w-5 h-5 text-mc-accent" />
+            <h2 className="text-xl font-semibold text-mc-text">Pricing por modelo (USD / 1M tokens)</h2>
+          </div>
+          <p className="text-sm text-mc-text-secondary mb-3">
+            Editá precios para cálculo de costo estimado en dashboard.
+          </p>
+          <textarea
+            value={pricingJson}
+            onChange={(e) => setPricingJson(e.target.value)}
+            className="w-full min-h-[180px] px-4 py-2 bg-mc-bg border border-mc-border rounded text-mc-text font-mono text-xs focus:border-mc-accent focus:outline-none"
+          />
+          <div className="mt-3 flex items-center gap-3">
+            <button onClick={handleSavePricing} className="px-4 py-2 bg-mc-accent text-mc-bg rounded hover:bg-mc-accent/90">Guardar pricing</button>
+            {pricingMsg && <p className="text-sm text-mc-text-secondary">{pricingMsg}</p>}
           </div>
         </section>
 

@@ -35,9 +35,23 @@ export async function GET() {
     const mapBySession = new Map(mapRows.map((r) => [r.openclaw_session_id, r.agent_id]));
     const mapAgent = new Map(agentRows.map((a) => [a.id, a]));
 
-    const total = { inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0 };
-    const byModel: Record<string, { inputTokens: number; outputTokens: number; totalTokens: number; sessions: number }> = {};
-    const byAgent: Record<string, { agentId: string; agentName: string; workspaceId: string; model: string; inputTokens: number; outputTokens: number; totalTokens: number; sessions: number }> = {};
+    // Pricing (USD per 1M tokens)
+    let pricing: Record<string, { inputPer1M: number; outputPer1M: number }> = {
+      'anthropic/claude-sonnet-4-6': { inputPer1M: 3, outputPer1M: 15 },
+      'openai-codex/gpt-5.3-codex': { inputPer1M: 2, outputPer1M: 8 },
+    };
+    try {
+      const fs = await import('fs');
+      const p = '/root/.openclaw/workspace/projects/personal/mission-control/data/model-pricing.json';
+      if (fs.existsSync(p)) {
+        const loaded = JSON.parse(fs.readFileSync(p, 'utf8'));
+        if (loaded?.pricing) pricing = loaded.pricing;
+      }
+    } catch {}
+
+    const total = { inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, estCostUsd: 0 };
+    const byModel: Record<string, { inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
+    const byAgent: Record<string, { agentId: string; agentName: string; workspaceId: string; model: string; inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
 
     for (const s of sessions) {
       const key = String(s?.key || '');
@@ -46,16 +60,21 @@ export async function GET() {
       const output = Number(s?.outputTokens || 0);
       const t = Number(s?.totalTokens || input + output || 0);
 
+      const price = pricing[model] || { inputPer1M: 0, outputPer1M: 0 };
+      const est = (input / 1_000_000) * price.inputPer1M + (output / 1_000_000) * price.outputPer1M;
+
       total.inputTokens += input;
       total.outputTokens += output;
       total.totalTokens += t;
       total.sessions += 1;
+      total.estCostUsd += est;
 
-      if (!byModel[model]) byModel[model] = { inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0 };
+      if (!byModel[model]) byModel[model] = { inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, estCostUsd: 0 };
       byModel[model].inputTokens += input;
       byModel[model].outputTokens += output;
       byModel[model].totalTokens += t;
       byModel[model].sessions += 1;
+      byModel[model].estCostUsd += est;
 
       // key: agent:main:<openclaw_session_id>
       const maybeSessionId = key.startsWith('agent:main:') ? key.slice('agent:main:'.length) : '';
@@ -74,12 +93,14 @@ export async function GET() {
             outputTokens: 0,
             totalTokens: 0,
             sessions: 0,
+            estCostUsd: 0,
           };
         }
         byAgent[k].inputTokens += input;
         byAgent[k].outputTokens += output;
         byAgent[k].totalTokens += t;
         byAgent[k].sessions += 1;
+        byAgent[k].estCostUsd += est;
       }
     }
 
@@ -87,6 +108,7 @@ export async function GET() {
       total,
       byModel,
       byAgent: Object.values(byAgent).sort((a, b) => b.totalTokens - a.totalTokens).slice(0, 20),
+      pricing,
       sessionsCount: sessions.length,
       timestamp: new Date().toISOString(),
     });

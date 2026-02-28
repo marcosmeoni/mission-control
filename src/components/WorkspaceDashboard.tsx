@@ -96,8 +96,8 @@ export function WorkspaceDashboard() {
               <div className="text-lg font-semibold">{Number(usage?.sessionsCount || 0)}</div>
             </div>
             <div className="bg-mc-bg-secondary border border-mc-border rounded-lg p-3">
-              <div className="text-xs text-mc-text-secondary">Top model</div>
-              <div className="text-sm font-medium truncate">{Object.entries(usage?.byModel || {}).sort((a: any,b: any)=> (b[1].totalTokens||0)-(a[1].totalTokens||0))[0]?.[0] || '—'}</div>
+              <div className="text-xs text-mc-text-secondary">Costo estimado (USD)</div>
+              <div className="text-lg font-semibold">${Number(usage?.total?.estCostUsd || 0).toFixed(4)}</div>
             </div>
           </div>
         )}
@@ -112,6 +112,7 @@ export function WorkspaceDashboard() {
                   <th className="py-2 pr-2">Workspace</th>
                   <th className="py-2 pr-2">Model</th>
                   <th className="py-2 pr-2">Tokens</th>
+                  <th className="py-2 pr-2">Costo USD</th>
                 </tr>
               </thead>
               <tbody>
@@ -121,6 +122,7 @@ export function WorkspaceDashboard() {
                     <td className="py-2 pr-2">{r.workspaceId}</td>
                     <td className="py-2 pr-2">{r.model}</td>
                     <td className="py-2 pr-2">{Number(r.totalTokens||0).toLocaleString()}</td>
+                    <td className="py-2 pr-2">${Number(r.estCostUsd||0).toFixed(4)}</td>
                   </tr>
                 ))}
               </tbody>
