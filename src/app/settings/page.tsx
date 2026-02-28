@@ -22,6 +22,33 @@ export default function SettingsPage() {
   const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
+  const calcPasswordStrength = (pwd: string) => {
+    if (!pwd) return { label: '—', color: 'text-mc-text-secondary', score: 0 };
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (pwd.length >= 12) score++;
+    if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
+    if (/\d/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+    if (score <= 2) return { label: 'Débil', color: 'text-red-400', score };
+    if (score <= 4) return { label: 'Media', color: 'text-yellow-400', score };
+    return { label: 'Fuerte', color: 'text-green-400', score };
+  };
+
+  const generateStrongPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*()_+-=';
+    let out = '';
+    const bytes = new Uint32Array(20);
+    crypto.getRandomValues(bytes);
+    for (let i = 0; i < bytes.length; i++) {
+      out += chars[bytes[i] % chars.length];
+    }
+    setNewPassword(out);
+    setConfirmPassword(out);
+    setPasswordMsg('Generé una contraseña fuerte. Guardala en tu gestor de claves.');
+  };
+
   useEffect(() => {
     setConfig(getConfig());
   }, []);
@@ -274,7 +301,16 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-mc-text mb-2">Nueva contraseña</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-mc-text">Nueva contraseña</label>
+                <button
+                  type="button"
+                  onClick={generateStrongPassword}
+                  className="text-xs px-2 py-1 rounded border border-mc-border hover:bg-mc-bg-tertiary text-mc-text-secondary"
+                >
+                  Generar fuerte
+                </button>
+              </div>
               <input
                 type="password"
                 value={newPassword}
@@ -282,6 +318,9 @@ export default function SettingsPage() {
                 autoComplete="new-password"
                 className="w-full px-4 py-2 bg-mc-bg border border-mc-border rounded text-mc-text focus:border-mc-accent focus:outline-none"
               />
+              <p className={`mt-1 text-xs ${calcPasswordStrength(newPassword).color}`}>
+                Fortaleza: {calcPasswordStrength(newPassword).label}
+              </p>
             </div>
 
             <div>
