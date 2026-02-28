@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, ChevronRight, ChevronLeft, Zap, ZapOff, Loader2, Search, MessagesSquare, Users } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import type { Agent, AgentStatus, OpenClawSession, Task } from '@/lib/types';
@@ -16,6 +16,7 @@ interface RoomItem {
   task_title: string;
   task_status: string;
   task_priority: string;
+  updated_at: string;
   last_message?: string;
   last_message_at?: string;
   message_count: number;
@@ -38,6 +39,10 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
   const [sidebarView, setSidebarView] = useState<SidebarView>('people');
   const [rooms, setRooms] = useState<RoomItem[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
+  const [roomStatusFilter, setRoomStatusFilter] = useState<string>('all');
+  const [roomProjectFilter, setRoomProjectFilter] = useState<string>('all');
+  const [roomSearch, setRoomSearch] = useState('');
+  const [lastSeenByRoom, setLastSeenByRoom] = useState<Record<string, string>>({});
 
   const toggleMinimize = () => setIsMinimized(!isMinimized);
 
@@ -85,6 +90,13 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
   useEffect(() => {
     if (!workspaceId) return;
 
+    try {
+      const raw = localStorage.getItem(`mc:lastSeenRooms:${workspaceId}`);
+      setLastSeenByRoom(raw ? JSON.parse(raw) : {});
+    } catch {
+      setLastSeenByRoom({});
+    }
+
     const loadRooms = async () => {
       setLoadingRooms(true);
       try {
@@ -104,6 +116,13 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
     const timer = setInterval(loadRooms, 10000);
     return () => clearInterval(timer);
   }, [workspaceId]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    try {
+      localStorage.setItem(`mc:lastSeenRooms:${workspaceId}`, JSON.stringify(lastSeenByRoom));
+    } catch {}
+  }, [workspaceId, lastSeenByRoom]);
 
   const handleConnectToOpenClaw = async (agent: Agent, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -147,6 +166,51 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
       offline: 'status-offline',
     };
     return styles[status] || styles.standby;
+  };
+
+  const roomProjectFromTitle = (title: string) => {
+    const m = title.match(/^\[([A-Z]+)-\d+\]/);
+    return m?.[1] || 'GEN';
+  };
+
+  const roomStatusOptions = useMemo(() => {
+    const set = new Set<string>(rooms.map((r) => r.task_status));
+    return ['all', ...Array.from(set)];
+  }, [rooms]);
+
+  const roomProjectOptions = useMemo(() => {
+    const set = new Set<string>(rooms.map((r) => roomProjectFromTitle(r.task_title)));
+    return ['all', ...Array.from(set)];
+  }, [rooms]);
+
+  const roomsFiltered = useMemo(() => {
+    const q = roomSearch.trim().toLowerCase();
+    return rooms.filter((r) => {
+      if (roomStatusFilter !== 'all' && r.task_status !== roomStatusFilter) return false;
+      const project = roomProjectFromTitle(r.task_title);
+      if (roomProjectFilter !== 'all' && project !== roomProjectFilter) return false;
+      if (q) {
+        const hay = `${r.task_title} ${r.task_id} ${r.last_message || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [rooms, roomStatusFilter, roomProjectFilter, roomSearch]);
+
+  const unreadCount = useMemo(() => {
+    return roomsFiltered.reduce((acc, r) => {
+      const seen = lastSeenByRoom[r.conversation_id];
+      const last = r.last_message_at || r.updated_at;
+      if (last && (!seen || new Date(last) > new Date(seen))) return acc + 1;
+      return acc;
+    }, 0);
+  }, [roomsFiltered, lastSeenByRoom]);
+
+  const markAllRoomsRead = () => {
+    const now = new Date().toISOString();
+    const next = { ...lastSeenByRoom };
+    for (const r of rooms) next[r.conversation_id] = now;
+    setLastSeenByRoom(next);
   };
 
   const expanded = mobileMode || !isMinimized;
@@ -218,6 +282,9 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
                 }`}
               >
                 <MessagesSquare className="w-3 h-3" /> Rooms
+                {unreadCount > 0 && (
+                  <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-red-500 text-white">{unreadCount}</span>
+                )}
               </button>
             </div>
 
@@ -318,25 +385,52 @@ export function AgentsSidebar({ workspaceId, mobileMode }: AgentsSidebarProps) {
 
         {sidebarView === 'rooms' && (
           <>
+            <div className="p-2 space-y-2 border border-mc-border rounded bg-mc-bg-secondary/40">
+              <input
+                value={roomSearch}
+                onChange={(e) => setRoomSearch(e.target.value)}
+                placeholder="Buscar room/tarea..."
+                className="w-full bg-mc-bg border border-mc-border rounded px-2 py-1.5 text-xs"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <select value={roomStatusFilter} onChange={(e) => setRoomStatusFilter(e.target.value)} className="bg-mc-bg border border-mc-border rounded px-2 py-1.5 text-xs">
+                  {roomStatusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select value={roomProjectFilter} onChange={(e) => setRoomProjectFilter(e.target.value)} className="bg-mc-bg border border-mc-border rounded px-2 py-1.5 text-xs">
+                  {roomProjectOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <button onClick={markAllRoomsRead} className="w-full text-xs px-2 py-1.5 rounded border border-mc-border hover:bg-mc-bg-tertiary">Marcar todas leídas</button>
+            </div>
+
             {loadingRooms && <div className="text-xs text-mc-text-secondary p-2">Loading rooms…</div>}
-            {!loadingRooms && rooms.length === 0 && <div className="text-xs text-mc-text-secondary p-2">No rooms yet for this workspace.</div>}
-            {rooms.map((room) => (
-              <button
-                key={room.conversation_id}
-                onClick={() => {
-                  const task = tasks.find((t) => t.id === room.task_id) as Task | undefined;
-                  if (task) setSelectedTask(task);
-                }}
-                className="w-full text-left p-2 rounded hover:bg-mc-bg-tertiary border border-transparent hover:border-mc-border"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-sm font-medium truncate">{room.task_title}</div>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-mc-bg text-mc-text-secondary uppercase">{room.task_status}</span>
-                </div>
-                <div className="text-xs text-mc-text-secondary truncate mt-1">{room.last_message || 'Sin mensajes todavía'}</div>
-                <div className="text-[10px] text-mc-text-secondary mt-1">{room.message_count} msgs</div>
-              </button>
-            ))}
+            {!loadingRooms && roomsFiltered.length === 0 && <div className="text-xs text-mc-text-secondary p-2">No rooms found with current filters.</div>}
+            {roomsFiltered.map((room) => {
+              const seen = lastSeenByRoom[room.conversation_id];
+              const last = room.last_message_at || room.updated_at;
+              const isUnread = Boolean(last && (!seen || new Date(last) > new Date(seen)));
+              return (
+                <button
+                  key={room.conversation_id}
+                  onClick={() => {
+                    const task = tasks.find((t) => t.id === room.task_id) as Task | undefined;
+                    if (task) setSelectedTask(task);
+                    setLastSeenByRoom((prev) => ({ ...prev, [room.conversation_id]: new Date().toISOString() }));
+                  }}
+                  className={`w-full text-left p-2 rounded border transition-colors ${isUnread ? 'border-mc-accent-cyan/60 bg-mc-bg-tertiary/40' : 'border-transparent hover:border-mc-border hover:bg-mc-bg-tertiary'}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium truncate">{room.task_title}</div>
+                    <div className="flex items-center gap-1">
+                      {isUnread && <span className="w-2 h-2 rounded-full bg-cyan-400" />}
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-mc-bg text-mc-text-secondary uppercase">{room.task_status}</span>
+                    </div>
+                  </div>
+                  <div className="text-xs text-mc-text-secondary truncate mt-1">{room.last_message || 'Sin mensajes todavía'}</div>
+                  <div className="text-[10px] text-mc-text-secondary mt-1">{room.message_count} msgs · {roomProjectFromTitle(room.task_title)}</div>
+                </button>
+              );
+            })}
           </>
         )}
       </div>
