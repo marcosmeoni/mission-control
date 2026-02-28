@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getOpenClawClient } from '@/lib/openclaw/client';
+import { startQueueWorker } from '@/lib/queue';
 
 // GET /api/openclaw/status - Check OpenClaw connection status
 export async function GET() {
   try {
+    // Optional queue bootstrap (non-fatal if redis is unavailable)
+    startQueueWorker();
+
     const client = getOpenClawClient();
 
     if (!client.isConnected()) {

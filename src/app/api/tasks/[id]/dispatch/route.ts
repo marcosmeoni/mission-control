@@ -5,6 +5,7 @@ import { queryOne, queryAll, run } from '@/lib/db';
 import { getOpenClawClient } from '@/lib/openclaw/client';
 import { broadcast } from '@/lib/events';
 import { getProjectsPath } from '@/lib/config';
+import { enqueueRoomMessage, startQueueWorker } from '@/lib/queue';
 import type { Task, Agent, OpenClawSession } from '@/lib/types';
 
 interface RouteParams {
@@ -42,24 +43,6 @@ function loadRouterRules(): RouterRule[] {
   return DEFAULT_ROUTER_RULES;
 }
 
-function ensureTaskRoom(taskId: string): string {
-  let conv = queryOne<{ id: string }>('SELECT id FROM conversations WHERE task_id = ? AND type = ? LIMIT 1', [taskId, 'task']);
-  if (!conv) {
-    const id = uuidv4();
-    const now = new Date().toISOString();
-    run('INSERT INTO conversations (id, title, type, task_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [id, `Task Room ${taskId.slice(0, 8)}`, 'task', taskId, now, now]);
-    conv = { id };
-  }
-  return conv.id;
-}
-
-function postRoomMessage(taskId: string, senderAgentId: string | null, content: string, messageType = 'task_update') {
-  const conversationId = ensureTaskRoom(taskId);
-  const now = new Date().toISOString();
-  run('INSERT INTO messages (id, conversation_id, sender_agent_id, content, message_type, created_at) VALUES (?, ?, ?, ?, ?, ?)', [uuidv4(), conversationId, senderAgentId, content, messageType, now]);
-  run('UPDATE conversations SET updated_at = ? WHERE id = ?', [now, conversationId]);
-}
-
 function pickSpecialist(taskTitle: string, taskDescription?: string | null): string | null {
   const text = `${taskTitle} ${taskDescription || ''}`.toLowerCase();
   const rules = loadRouterRules();
@@ -78,6 +61,7 @@ function pickSpecialist(taskTitle: string, taskDescription?: string | null): str
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    startQueueWorker();
     const { id } = await params;
 
     // Get task with agent info
@@ -143,7 +127,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             ]
           );
 
-          postRoomMessage(task.id, null, `🤝 Auto-routing: ${agent.name} delegated task to ${specialist.name}`);
+          await enqueueRoomMessage(task.id, null, `🤝 Auto-routing: ${agent.name} delegated task to ${specialist.name}`);
 
           // Refresh selected agent for the dispatch flow below
           agent = specialist;
@@ -348,7 +332,7 @@ If you need help or clarification, ask the orchestrator.`;
         [activityId, task.id, agent.id, 'status_changed', `Task dispatched to ${agent.name} - Agent is now working on this task`, now]
       );
 
-      postRoomMessage(task.id, agent.id, `🚀 ${agent.name} recibió la tarea y comenzó ejecución.`, 'task_update');
+      await enqueueRoomMessage(task.id, agent.id, `🚀 ${agent.name} recibió la tarea y comenzó ejecución.`, 'task_update');
 
       return NextResponse.json({
         success: true,
