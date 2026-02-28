@@ -21,7 +21,7 @@ interface RoomMessage {
 export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [content, setContent] = useState('');
-  const [senderId, setSenderId] = useState(defaultAgentId || '');
+  const [senderId, setSenderId] = useState('');
 
   const load = async () => {
     const res = await fetch(`/api/tasks/${taskId}/room`);
@@ -63,7 +63,7 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
         {messages.map((m) => (
           <div key={m.id} className="text-sm">
             <div className="text-xs text-mc-text-secondary">
-              {(m.sender_avatar || '🤖')} {m.sender_name || 'system'} · {new Date(m.created_at).toLocaleTimeString()}
+              {(m.sender_avatar || '👤')} {m.sender_name || 'Tú'} · {new Date(m.created_at).toLocaleTimeString()}
             </div>
             <div className="whitespace-pre-wrap">{m.content}</div>
           </div>
@@ -86,7 +86,7 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
           onChange={(e) => setSenderId(e.target.value)}
           className="bg-mc-bg border border-mc-border rounded px-3 py-2 text-sm"
         >
-          <option value="">System</option>
+          <option value="">Tú</option>
           {agents.map((a) => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
