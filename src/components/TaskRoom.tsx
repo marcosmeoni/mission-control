@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Agent } from '@/lib/types';
 
 interface TaskRoomProps {
@@ -22,6 +22,7 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [content, setContent] = useState('');
   const [senderId, setSenderId] = useState('');
+  const listRef = useRef<HTMLDivElement | null>(null);
 
   const load = async () => {
     const res = await fetch(`/api/tasks/${taskId}/room`);
@@ -36,6 +37,12 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
     const t = setInterval(load, 5000);
     return () => clearInterval(t);
   }, [taskId]);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages]);
 
   const send = async () => {
     if (!content.trim()) return;
@@ -58,7 +65,7 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
 
   return (
     <div className="space-y-3">
-      <div className="max-h-[50vh] overflow-y-auto border border-mc-border rounded p-3 space-y-2 bg-mc-bg">
+      <div ref={listRef} className="max-h-[50vh] overflow-y-auto border border-mc-border rounded p-3 space-y-2 bg-mc-bg">
         {messages.length === 0 && <p className="text-sm text-mc-text-secondary">Sin mensajes todavía.</p>}
         {messages.map((m) => (
           <div key={m.id} className="text-sm">
