@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getOpenClawClient } from '@/lib/openclaw/client';
 import { queryAll } from '@/lib/db';
+import fs from 'fs';
 
 interface SessionRow {
   openclaw_session_id: string;
@@ -19,7 +20,52 @@ interface WorkspaceRow {
   slug: string;
 }
 
+type UsageTotals = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  sessions: number;
+  estCostUsd: number;
+};
+
+type LedgerState = {
+  lastBySession: Record<string, { input: number; output: number; total: number }>;
+  cumulative: UsageTotals;
+  byModel: Record<string, UsageTotals>;
+  byWorkspace: Record<string, UsageTotals & { workspaceId: string; workspaceName: string; workspaceSlug: string }>;
+  byAgent: Record<string, UsageTotals & { agentId: string; agentName: string; workspaceId: string; model: string }>;
+};
+
 export const dynamic = 'force-dynamic';
+
+const LEDGER_PATH = '/root/.openclaw/workspace/projects/personal/mission-control/data/usage-ledger-state.json';
+
+function emptyTotals(): UsageTotals {
+  return { inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, estCostUsd: 0 };
+}
+
+function loadLedger(): LedgerState {
+  try {
+    if (!fs.existsSync(LEDGER_PATH)) {
+      return { lastBySession: {}, cumulative: emptyTotals(), byModel: {}, byWorkspace: {}, byAgent: {} };
+    }
+    const raw = JSON.parse(fs.readFileSync(LEDGER_PATH, 'utf8'));
+    return {
+      lastBySession: raw.lastBySession || {},
+      cumulative: raw.cumulative || emptyTotals(),
+      byModel: raw.byModel || {},
+      byWorkspace: raw.byWorkspace || {},
+      byAgent: raw.byAgent || {},
+    };
+  } catch {
+    return { lastBySession: {}, cumulative: emptyTotals(), byModel: {}, byWorkspace: {}, byAgent: {} };
+  }
+}
+
+function saveLedger(state: LedgerState) {
+  fs.mkdirSync('/root/.openclaw/workspace/projects/personal/mission-control/data', { recursive: true });
+  fs.writeFileSync(LEDGER_PATH, JSON.stringify(state, null, 2));
+}
 
 export async function GET() {
   try {
@@ -49,7 +95,6 @@ export async function GET() {
       'openai-codex/gpt-5.3-codex': { inputPer1M: 2, outputPer1M: 8 },
     };
     try {
-      const fs = await import('fs');
       const p = '/root/.openclaw/workspace/projects/personal/mission-control/data/model-pricing.json';
       if (fs.existsSync(p)) {
         const loaded = JSON.parse(fs.readFileSync(p, 'utf8'));
@@ -57,10 +102,11 @@ export async function GET() {
       }
     } catch {}
 
-    const total = { inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, estCostUsd: 0 };
-    const byModel: Record<string, { inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
-    const byWorkspace: Record<string, { workspaceId: string; workspaceName: string; workspaceSlug: string; inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
-    const byAgent: Record<string, { agentId: string; agentName: string; workspaceId: string; model: string; inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
+    // Live snapshot
+    const live = emptyTotals();
+
+    // Cumulative ledger update
+    const ledger = loadLedger();
 
     for (const s of sessions) {
       const key = String(s?.key || '');
@@ -73,75 +119,91 @@ export async function GET() {
 
       const bareModel = model.includes('/') ? model.split('/').slice(1).join('/') : model;
       const price = pricing[model] || pricing[bareModel] || { inputPer1M: 0, outputPer1M: 0 };
-      const est = (input / 1_000_000) * price.inputPer1M + (output / 1_000_000) * price.outputPer1M;
+      const estLive = (input / 1_000_000) * price.inputPer1M + (output / 1_000_000) * price.outputPer1M;
 
-      total.inputTokens += input;
-      total.outputTokens += output;
-      total.totalTokens += t;
-      total.sessions += 1;
-      total.estCostUsd += est;
+      live.inputTokens += input;
+      live.outputTokens += output;
+      live.totalTokens += t;
+      live.sessions += 1;
+      live.estCostUsd += estLive;
 
-      if (!byModel[model]) byModel[model] = { inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, estCostUsd: 0 };
-      byModel[model].inputTokens += input;
-      byModel[model].outputTokens += output;
-      byModel[model].totalTokens += t;
-      byModel[model].sessions += 1;
-      byModel[model].estCostUsd += est;
+      const prev = ledger.lastBySession[key];
+      const deltaInput = prev ? Math.max(0, input - prev.input) : input;
+      const deltaOutput = prev ? Math.max(0, output - prev.output) : output;
+      const deltaTotal = prev ? Math.max(0, t - prev.total) : t;
 
-      // key: agent:main:<openclaw_session_id>
-      const maybeSessionId = key.startsWith('agent:main:') ? key.slice('agent:main:'.length) : '';
-      const agentId = mapBySession.get(maybeSessionId);
-      if (agentId) {
-        const agent = mapAgent.get(agentId);
-        const workspaceId = agent?.workspace_id || 'unknown';
-
-        if (!byWorkspace[workspaceId]) {
-          const ws = mapWorkspace.get(workspaceId);
-          byWorkspace[workspaceId] = {
-            workspaceId,
-            workspaceName: ws?.name || workspaceId,
-            workspaceSlug: ws?.slug || workspaceId,
-            inputTokens: 0,
-            outputTokens: 0,
-            totalTokens: 0,
-            sessions: 0,
-            estCostUsd: 0,
-          };
-        }
-        byWorkspace[workspaceId].inputTokens += input;
-        byWorkspace[workspaceId].outputTokens += output;
-        byWorkspace[workspaceId].totalTokens += t;
-        byWorkspace[workspaceId].sessions += 1;
-        byWorkspace[workspaceId].estCostUsd += est;
-
-        const label = agent?.name || agentId;
-        const k = `${agentId}::${model}`;
-        if (!byAgent[k]) {
-          byAgent[k] = {
-            agentId,
-            agentName: label,
-            workspaceId: agent?.workspace_id || 'unknown',
-            model,
-            inputTokens: 0,
-            outputTokens: 0,
-            totalTokens: 0,
-            sessions: 0,
-            estCostUsd: 0,
-          };
-        }
-        byAgent[k].inputTokens += input;
-        byAgent[k].outputTokens += output;
-        byAgent[k].totalTokens += t;
-        byAgent[k].sessions += 1;
-        byAgent[k].estCostUsd += est;
+      // If session reset (lower numbers), update baseline without subtracting
+      if (prev && (input < prev.input || output < prev.output || t < prev.total)) {
+        ledger.lastBySession[key] = { input, output, total: t };
+        continue;
       }
+
+      if (deltaTotal > 0 || deltaInput > 0 || deltaOutput > 0) {
+        const estDelta = (deltaInput / 1_000_000) * price.inputPer1M + (deltaOutput / 1_000_000) * price.outputPer1M;
+
+        ledger.cumulative.inputTokens += deltaInput;
+        ledger.cumulative.outputTokens += deltaOutput;
+        ledger.cumulative.totalTokens += deltaTotal;
+        ledger.cumulative.estCostUsd += estDelta;
+        ledger.cumulative.sessions = live.sessions;
+
+        if (!ledger.byModel[model]) ledger.byModel[model] = emptyTotals();
+        ledger.byModel[model].inputTokens += deltaInput;
+        ledger.byModel[model].outputTokens += deltaOutput;
+        ledger.byModel[model].totalTokens += deltaTotal;
+        ledger.byModel[model].estCostUsd += estDelta;
+
+        const maybeSessionId = key.startsWith('agent:main:') ? key.slice('agent:main:'.length) : '';
+        const agentId = mapBySession.get(maybeSessionId);
+        if (agentId) {
+          const agent = mapAgent.get(agentId);
+          const workspaceId = agent?.workspace_id || 'unknown';
+          const ws = mapWorkspace.get(workspaceId);
+
+          if (!ledger.byWorkspace[workspaceId]) {
+            ledger.byWorkspace[workspaceId] = {
+              workspaceId,
+              workspaceName: ws?.name || workspaceId,
+              workspaceSlug: ws?.slug || workspaceId,
+              ...emptyTotals(),
+            };
+          }
+          ledger.byWorkspace[workspaceId].inputTokens += deltaInput;
+          ledger.byWorkspace[workspaceId].outputTokens += deltaOutput;
+          ledger.byWorkspace[workspaceId].totalTokens += deltaTotal;
+          ledger.byWorkspace[workspaceId].estCostUsd += estDelta;
+
+          const label = agent?.name || agentId;
+          const ak = `${agentId}::${model}`;
+          if (!ledger.byAgent[ak]) {
+            ledger.byAgent[ak] = {
+              agentId,
+              agentName: label,
+              workspaceId,
+              model,
+              ...emptyTotals(),
+            };
+          }
+          ledger.byAgent[ak].inputTokens += deltaInput;
+          ledger.byAgent[ak].outputTokens += deltaOutput;
+          ledger.byAgent[ak].totalTokens += deltaTotal;
+          ledger.byAgent[ak].estCostUsd += estDelta;
+        }
+      }
+
+      ledger.lastBySession[key] = { input, output, total: t };
     }
 
+    saveLedger(ledger);
+
     return NextResponse.json({
-      total,
-      byModel,
-      byWorkspace: Object.values(byWorkspace).sort((a, b) => b.totalTokens - a.totalTokens),
-      byAgent: Object.values(byAgent).sort((a, b) => b.totalTokens - a.totalTokens).slice(0, 20),
+      // Backward-compatible fields (now cumulative, so they won't decrease)
+      total: ledger.cumulative,
+      byModel: ledger.byModel,
+      byWorkspace: Object.values(ledger.byWorkspace).sort((a, b) => b.totalTokens - a.totalTokens),
+      byAgent: Object.values(ledger.byAgent).sort((a, b) => b.totalTokens - a.totalTokens).slice(0, 20),
+      // Explicit live snapshot
+      live,
       pricing,
       sessionsCount: sessions.length,
       timestamp: new Date().toISOString(),
