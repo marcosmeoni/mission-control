@@ -485,3 +485,25 @@ MIT License — see [LICENSE](LICENSE) for details.
 <p align="center">
   <strong>Happy orchestrating!</strong> 🚀
 </p>
+
+## Operations
+
+### Run as a persistent service (systemd)
+
+Service file (server):
+- `/etc/systemd/system/mission-control.service`
+
+Useful commands:
+- `systemctl status mission-control`
+- `systemctl restart mission-control`
+- `journalctl -u mission-control -f`
+- `tail -f /var/log/mission-control.log`
+
+### Healthcheck
+
+Run:
+- `./scripts/healthcheck.sh`
+
+What it validates:
+1. `mission-control` systemd service is active
+2. `GET /api/openclaw/status` reports `connected=true`
