@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, Save, RotateCcw, Home, FolderOpen, Link as LinkIcon } from 'lucide-react';
+import { Settings, Save, RotateCcw, FolderOpen, Link as LinkIcon, Lock } from 'lucide-react';
 import { getConfig, updateConfig, resetConfig, type MissionControlConfig } from '@/lib/config';
 
 export default function SettingsPage() {
@@ -16,6 +16,11 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     setConfig(getConfig());
@@ -51,6 +56,48 @@ export default function SettingsPage() {
   const handleChange = (field: keyof MissionControlConfig, value: string) => {
     if (!config) return;
     setConfig({ ...config, [field]: value });
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordMsg(null);
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordMsg('Completá los 3 campos de contraseña.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMsg('La confirmación no coincide.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordMsg('La nueva contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPasswordMsg(data?.error || 'No se pudo cambiar la contraseña.');
+      } else {
+        setPasswordMsg('Contraseña actualizada. El servicio se está reiniciando...');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch {
+      setPasswordMsg('No se pudo cambiar la contraseña.');
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   if (!config) {
@@ -201,6 +248,64 @@ export default function SettingsPage() {
                 URL where Mission Control is running. Auto-detected by default. Change for remote access.
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* Login Security */}
+        <section className="mb-8 p-6 bg-mc-bg-secondary border border-mc-border rounded-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <Lock className="w-5 h-5 text-mc-accent" />
+            <h2 className="text-xl font-semibold text-mc-text">Seguridad de Login</h2>
+          </div>
+          <p className="text-sm text-mc-text-secondary mb-4">
+            Cambiá la contraseña del login del dashboard. Esto reinicia el servicio para aplicar el cambio.
+          </p>
+
+          <div className="space-y-4 max-w-md">
+            <div>
+              <label className="block text-sm font-medium text-mc-text mb-2">Contraseña actual</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+                className="w-full px-4 py-2 bg-mc-bg border border-mc-border rounded text-mc-text focus:border-mc-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-mc-text mb-2">Nueva contraseña</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                className="w-full px-4 py-2 bg-mc-bg border border-mc-border rounded text-mc-text focus:border-mc-accent focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-mc-text mb-2">Confirmar nueva contraseña</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                className="w-full px-4 py-2 bg-mc-bg border border-mc-border rounded text-mc-text focus:border-mc-accent focus:outline-none"
+              />
+            </div>
+
+            <button
+              onClick={handleChangePassword}
+              disabled={isChangingPassword}
+              className="px-4 py-2 bg-mc-accent text-mc-bg rounded hover:bg-mc-accent/90 disabled:opacity-50"
+            >
+              {isChangingPassword ? 'Actualizando...' : 'Cambiar contraseña'}
+            </button>
+
+            {passwordMsg && (
+              <p className="text-sm text-mc-text-secondary">{passwordMsg}</p>
+            )}
           </div>
         </section>
 
