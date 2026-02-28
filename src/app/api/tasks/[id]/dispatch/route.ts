@@ -4,7 +4,7 @@ import fs from 'fs';
 import { queryOne, queryAll, run } from '@/lib/db';
 import { getOpenClawClient } from '@/lib/openclaw/client';
 import { broadcast } from '@/lib/events';
-import { getProjectsPath, getMissionControlUrl } from '@/lib/config';
+import { getProjectsPath } from '@/lib/config';
 import type { Task, Agent, OpenClawSession } from '@/lib/types';
 
 interface RouteParams {
@@ -239,7 +239,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const projectsPath = getProjectsPath();
     const projectDir = task.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const taskProjectDir = `${projectsPath}/${projectDir}`;
-    const missionControlUrl = getMissionControlUrl();
+    // Use local loopback URL so agent curl calls work from server host regardless of public domain/proxy
+    const localPort = process.env.PORT || '80';
+    const missionControlUrl = localPort === '80' ? 'http://127.0.0.1' : `http://127.0.0.1:${localPort}`;
 
     const missionControlApiToken = process.env.MC_API_TOKEN || '';
 

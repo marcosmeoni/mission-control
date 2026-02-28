@@ -22,8 +22,18 @@ export async function GET(request: Request, { params }: RouteParams) {
       }
     }
 
-    const history = await client.getSessionHistory(id);
-    return NextResponse.json({ history });
+    // id can be sessionKey (agent:...) or sessionId (uuid). chat.history expects sessionKey.
+    let sessionKey = id;
+    if (!id.includes(':')) {
+      try {
+        const sessions = await client.listSessions() as Array<{ key?: string; sessionId?: string; id?: string }>;
+        const match = sessions.find((s) => s.sessionId === id || s.id === id);
+        if (match?.key) sessionKey = match.key;
+      } catch {}
+    }
+
+    const history = await client.getSessionHistory(sessionKey);
+    return NextResponse.json({ history, sessionKey });
   } catch (error) {
     console.error('Failed to get OpenClaw session history:', error);
     return NextResponse.json(
