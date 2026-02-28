@@ -1,6 +1,22 @@
 {
   "rules": [
     {
+      "key": "spec-git",
+      "patterns": [
+        "repo",
+        "repository",
+        "git",
+        "github",
+        "gitlab",
+        "branch",
+        "commit",
+        "mr",
+        "pr",
+        "changelog",
+        "tag release"
+      ]
+    },
+    {
       "key": "spec-iac",
       "patterns": [
         "iac",
