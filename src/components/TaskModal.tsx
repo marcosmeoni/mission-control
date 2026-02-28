@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { X, Save, Trash2, Activity, Package, Bot, ClipboardList, Plus } from 'lucide-react';
+import { X, Save, Trash2, Activity, Package, Bot, ClipboardList, Plus, MessagesSquare } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import { triggerAutoDispatch, shouldTriggerAutoDispatch } from '@/lib/auto-dispatch';
 import { ActivityLog } from './ActivityLog';
@@ -9,9 +9,10 @@ import { DeliverablesList } from './DeliverablesList';
 import { SessionsList } from './SessionsList';
 import { PlanningTab } from './PlanningTab';
 import { AgentModal } from './AgentModal';
+import { TaskRoom } from './TaskRoom';
 import type { Task, TaskPriority, TaskStatus } from '@/lib/types';
 
-type TabType = 'overview' | 'planning' | 'activity' | 'deliverables' | 'sessions';
+type TabType = 'overview' | 'planning' | 'activity' | 'deliverables' | 'sessions' | 'room';
 
 interface TaskModalProps {
   task?: Task;
@@ -150,6 +151,7 @@ export function TaskModal({ task, onClose, workspaceId }: TaskModalProps) {
     { id: 'activity' as TabType, label: 'Activity', icon: <Activity className="w-4 h-4" /> },
     { id: 'deliverables' as TabType, label: 'Deliverables', icon: <Package className="w-4 h-4" /> },
     { id: 'sessions' as TabType, label: 'Sessions', icon: <Bot className="w-4 h-4" /> },
+    { id: 'room' as TabType, label: 'Room', icon: <MessagesSquare className="w-4 h-4" /> },
   ];
 
   return (
@@ -337,6 +339,15 @@ export function TaskModal({ task, onClose, workspaceId }: TaskModalProps) {
           {/* Sessions Tab */}
           {activeTab === 'sessions' && task && (
             <SessionsList taskId={task.id} />
+          )}
+
+          {/* Room Tab */}
+          {activeTab === 'room' && task && (
+            <TaskRoom
+              taskId={task.id}
+              agents={agents}
+              defaultAgentId={task.assigned_agent_id}
+            />
           )}
         </div>
 
