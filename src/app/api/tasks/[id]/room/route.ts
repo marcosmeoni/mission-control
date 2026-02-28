@@ -84,6 +84,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Otherwise fallback to assigned agent so user always gets a conversational response.
     let responder: { id: string; name: string } | null = null;
 
+    const coordinator = queryOne<{ id: string; name: string; gateway_agent_id?: string }>(
+      `SELECT a.id, a.name, a.gateway_agent_id
+       FROM agents a
+       INNER JOIN tasks t ON t.workspace_id = a.workspace_id
+       WHERE t.id = ? AND (a.gateway_agent_id LIKE 'coord-%' OR a.name LIKE 'coord-%')
+       LIMIT 1`,
+      [taskId]
+    ) || null;
+
     const mention = content.match(/@([a-zA-Z0-9_-]+)/);
     if (mention) {
       const mentionedName = mention[1];
@@ -141,7 +150,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         [ackId, conversationId, responder.id, `✅ Recibido. Estoy procesando este punto y vuelvo con update en breve.`, 'task_update', new Date().toISOString()]
       );
 
-      // If task is already done, provide instant summary from stored result context
+      // If task is already done, escalate to coordinator for decision (reopen/planning)
       if (task.status === 'done') {
         const latestActivity = queryOne<{ message: string }>(
           `SELECT message FROM task_activities WHERE task_id = ? ORDER BY created_at DESC LIMIT 1`,
@@ -152,7 +161,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           [taskId]
         );
         const summary = [
-          `📌 Esta tarea ya está en *done*.`,
+          `📌 Esta tarea ya está en *done*. Escalo al coordinador para decidir re-open/planning según tu pedido.`,
           latestActivity?.message ? `Último resultado: ${latestActivity.message}` : null,
           deliverables.length ? `Deliverables: ${deliverables.map((d) => d.title).join(', ')}` : null,
         ].filter(Boolean).join('\n');
@@ -162,6 +171,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
            VALUES (?, ?, ?, ?, ?, ?)`,
           [uuidv4(), conversationId, responder.id, summary, 'task_update', new Date().toISOString()]
         );
+
+        // Ask coordinator to decide state transition and delegate
+        if (coordinator?.id) {
+          try {
+            const session = queryOne<{ openclaw_session_id: string }>(
+              `SELECT openclaw_session_id FROM openclaw_sessions WHERE agent_id = ? AND status = 'active' ORDER BY updated_at DESC LIMIT 1`,
+              [coordinator.id]
+            );
+            if (session?.openclaw_session_id) {
+              const client = getOpenClawClient();
+              if (!client.isConnected()) await client.connect();
+              await client.call('chat.send', {
+                sessionKey: `agent:main:${session.openclaw_session_id}`,
+                message: `User feedback on DONE task ${task.title} (${task.id}): ${content}\nDecide if task should move to planning or in_progress, then delegate as needed and report back in task room.`,
+                idempotencyKey: `room-done-escalation-${task.id}-${Date.now()}`,
+              });
+            }
+          } catch (err) {
+            console.warn('Failed to escalate done-task feedback to coordinator:', err);
+          }
+        }
       } else if (task.assigned_agent_id) {
         // Forward user message to assigned agent session for real processing
         try {
