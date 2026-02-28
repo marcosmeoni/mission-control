@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
 import { queryOne, queryAll, run, transaction } from '@/lib/db';
 import type { Agent } from '@/lib/types';
 
@@ -12,6 +14,26 @@ interface ImportAgentRequest {
 
 interface ImportRequest {
   agents: ImportAgentRequest[];
+}
+
+function loadAgentMarkdown(gatewayAgentId: string): {
+  soul_md: string | null;
+  user_md: string | null;
+  agents_md: string | null;
+} {
+  const workspaceDir = path.join('/root/.openclaw/workspace/agents', gatewayAgentId);
+
+  const readIfExists = (fileName: string): string | null => {
+    const filePath = path.join(workspaceDir, fileName);
+    if (!fs.existsSync(filePath)) return null;
+    return fs.readFileSync(filePath, 'utf8');
+  };
+
+  return {
+    soul_md: readIfExists('SOUL.md'),
+    user_md: readIfExists('USER.md'),
+    agents_md: readIfExists('AGENTS.md'),
+  };
 }
 
 // POST /api/agents/import - Import one or more agents from the OpenClaw Gateway
@@ -68,9 +90,11 @@ export async function POST(request: NextRequest) {
 
         const id = uuidv4();
 
+        const markdown = loadAgentMarkdown(agentReq.gateway_agent_id);
+
         run(
-          `INSERT INTO agents (id, name, role, description, avatar_emoji, is_master, workspace_id, model, source, gateway_agent_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO agents (id, name, role, description, avatar_emoji, is_master, workspace_id, soul_md, user_md, agents_md, model, source, gateway_agent_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             id,
             agentReq.name,
@@ -79,6 +103,9 @@ export async function POST(request: NextRequest) {
             '🔗',
             0,
             workspaceId,
+            markdown.soul_md,
+            markdown.user_md,
+            markdown.agents_md,
             agentReq.model || null,
             'gateway',
             agentReq.gateway_agent_id,
