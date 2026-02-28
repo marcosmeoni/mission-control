@@ -413,12 +413,26 @@ export function AgentsSidebar({ workspaceId, mobileMode, onOpenTaskFromRoom }: A
               return (
                 <button
                   key={room.conversation_id}
-                  onClick={() => {
-                    const task = tasks.find((t) => t.id === room.task_id) as Task | undefined;
+                  onClick={async () => {
+                    let task = tasks.find((t) => t.id === room.task_id) as Task | undefined;
+
+                    // Ensure task can be opened even if not currently in local store
+                    if (!task) {
+                      try {
+                        const res = await fetch(`/api/tasks/${room.task_id}`);
+                        if (res.ok) {
+                          task = await res.json();
+                        }
+                      } catch (error) {
+                        console.error('Failed to load task from room click:', error);
+                      }
+                    }
+
                     if (task) {
                       setSelectedTask(task);
                       onOpenTaskFromRoom?.();
                     }
+
                     setLastSeenByRoom((prev) => ({ ...prev, [room.conversation_id]: new Date().toISOString() }));
                   }}
                   className={`w-full text-left p-2 rounded border transition-colors ${isUnread ? 'border-mc-accent-cyan/60 bg-mc-bg-tertiary/40' : 'border-transparent hover:border-mc-border hover:bg-mc-bg-tertiary'}`}
