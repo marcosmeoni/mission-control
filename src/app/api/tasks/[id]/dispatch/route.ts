@@ -10,6 +10,30 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+function pickSpecialist(taskTitle: string, taskDescription?: string | null): string | null {
+  const text = `${taskTitle} ${taskDescription || ''}`.toLowerCase();
+  const rules: Array<{ key: string; patterns: RegExp[] }> = [
+    { key: 'spec-iac', patterns: [/terraform|terragrunt|iam|vpc|policy|m[oó]dulo/] },
+    { key: 'spec-k8s', patterns: [/k8s|kubernetes|eks|oke|aks|ingress|hpa|karpenter|helm/] },
+    { key: 'spec-ci', patterns: [/pipeline|github actions|gitlab ci|bitbucket|cicd|ci\//] },
+    { key: 'spec-python', patterns: [/python|script|automation|bot|parser/] },
+    { key: 'spec-ansible', patterns: [/ansible|playbook|hardening|inventory/] },
+    { key: 'spec-observability', patterns: [/slo|sli|grafana|prometheus|alert|observab/] },
+    { key: 'spec-finops', patterns: [/cost|finops|spend|billing|rightsiz|oci/] },
+    { key: 'spec-secops-cloud', patterns: [/security|secrets|least privilege|posture|compliance/] },
+    { key: 'spec-release-manager', patterns: [/release|deploy window|change management|cutover/] },
+    { key: 'spec-incident-commander', patterns: [/incident|sev[0-9]|outage|rca|postmortem/] },
+    { key: 'spec-platform-engineering', patterns: [/golden path|platform|scaffold|template/] },
+    { key: 'spec-runbook-automation', patterns: [/runbook|automation workflow|operational procedure/] },
+    { key: 'spec-dr-bcp', patterns: [/dr|bcp|backup|restore|rto|rpo/] },
+  ];
+
+  for (const r of rules) {
+    if (r.patterns.some((p) => p.test(text))) return r.key;
+  }
+  return null;
+}
+
 /**
  * POST /api/tasks/[id]/dispatch
  * 
@@ -41,13 +65,52 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get agent details
-    const agent = queryOne<Agent>(
+    let agent = queryOne<Agent>(
       'SELECT * FROM agents WHERE id = ?',
       [task.assigned_agent_id]
     );
 
     if (!agent) {
       return NextResponse.json({ error: 'Assigned agent not found' }, { status: 404 });
+    }
+
+    // Coordinator auto-planning + specialist auto-routing
+    const isCoordinator = (agent.gateway_agent_id || agent.name || '').startsWith('coord-');
+    if (isCoordinator) {
+      const specialistKey = pickSpecialist(task.title, task.description);
+      if (specialistKey) {
+        const specialist = queryOne<Agent>(
+          `SELECT * FROM agents
+           WHERE workspace_id = ?
+             AND gateway_agent_id = ?
+           LIMIT 1`,
+          [task.workspace_id, specialistKey]
+        );
+
+        if (specialist) {
+          // Reassign task to specialist inside the same workspace
+          run(
+            'UPDATE tasks SET assigned_agent_id = ?, status = ?, updated_at = ? WHERE id = ?',
+            [specialist.id, 'assigned', new Date().toISOString(), task.id]
+          );
+
+          run(
+            `INSERT INTO events (id, type, agent_id, task_id, message, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              uuidv4(),
+              'task_assigned',
+              specialist.id,
+              task.id,
+              `Auto-routing: ${agent.name} delegated to ${specialist.name}`,
+              new Date().toISOString(),
+            ]
+          );
+
+          // Refresh selected agent for the dispatch flow below
+          agent = specialist;
+        }
+      }
     }
 
     // Check if dispatching to the master agent while there are other orchestrators available
