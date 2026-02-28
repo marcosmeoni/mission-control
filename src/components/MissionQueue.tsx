@@ -54,13 +54,26 @@ export function MissionQueue({ workspaceId }: MissionQueueProps) {
       return;
     }
 
+    let approvalNote: string | undefined;
+    if (targetStatus === 'done') {
+      const prodLike = /\b(prod|prd|production|main branch|main)\b/i.test(`${draggedTask.title || ''} ${draggedTask.description || ''}`);
+      if (prodLike) {
+        const note = window.prompt('Esta tarea parece de PROD. Ingresá nota de aprobación para pasar a done:');
+        if (!note || !note.trim()) {
+          setDraggedTask(null);
+          return;
+        }
+        approvalNote = note.trim();
+      }
+    }
+
     updateTaskStatus(draggedTask.id, targetStatus);
 
     try {
       const res = await fetch(`/api/tasks/${draggedTask.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: targetStatus }),
+        body: JSON.stringify({ status: targetStatus, approval_note: approvalNote }),
       });
 
       if (res.ok) {
@@ -85,6 +98,8 @@ export function MissionQueue({ workspaceId }: MissionQueueProps) {
             console.error('Auto-dispatch failed:', result.error);
           }
         }
+      } else {
+        updateTaskStatus(draggedTask.id, draggedTask.status);
       }
     } catch (error) {
       console.error('Failed to update task status:', error);

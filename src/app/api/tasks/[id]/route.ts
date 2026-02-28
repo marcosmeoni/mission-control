@@ -63,6 +63,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
+    const prodLike = /\b(prod|prd|production|main branch|main)\b/i.test(`${existing.title || ''} ${existing.description || ''}`);
+
     const updates: string[] = [];
     const values: unknown[] = [];
     const now = new Date().toISOString();
@@ -74,6 +76,13 @@ export async function PATCH(
       return NextResponse.json(
         { error: 'Agent/API calls cannot set done directly. Move task to review/approval and approve manually.' },
         { status: 403 }
+      );
+    }
+
+    if (validatedData.status === 'done' && prodLike && !validatedData.approval_note) {
+      return NextResponse.json(
+        { error: 'Production-like task requires approval_note to move to done.' },
+        { status: 400 }
       );
     }
 
@@ -128,6 +137,14 @@ export async function PATCH(
          VALUES (?, ?, ?, ?, ?)`,
         [uuidv4(), eventType, id, `Task "${existing.title}" moved to ${validatedData.status}`, now]
       );
+
+      if (validatedData.status === 'done' && validatedData.approval_note) {
+        run(
+          `INSERT INTO task_activities (id, task_id, activity_type, message, created_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [uuidv4(), id, 'updated', `✅ Approval note: ${validatedData.approval_note}`, now]
+        );
+      }
     }
 
     // Handle assignment change
