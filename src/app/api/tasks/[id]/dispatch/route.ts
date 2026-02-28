@@ -241,6 +241,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const taskProjectDir = `${projectsPath}/${projectDir}`;
     const missionControlUrl = getMissionControlUrl();
 
+    const missionControlApiToken = process.env.MC_API_TOKEN || '';
+
     const taskMessage = `${priorityEmoji} **NEW TASK ASSIGNED**
 
 **Title:** ${task.title}
@@ -252,6 +254,9 @@ ${task.due_date ? `**Due:** ${task.due_date}\n` : ''}
 **OUTPUT DIRECTORY:** ${taskProjectDir}
 Create this directory and save all deliverables there.
 
+**AUTH FOR MISSION CONTROL API:**
+Use header: Authorization: Bearer ${missionControlApiToken}
+
 **IMPORTANT:** After completing work, you MUST call these APIs:
 1. Log activity: POST ${missionControlUrl}/api/tasks/${task.id}/activities
    Body: {"activity_type": "completed", "message": "Description of what was done"}
@@ -259,6 +264,8 @@ Create this directory and save all deliverables there.
    Body: {"deliverable_type": "file", "title": "File name", "path": "${taskProjectDir}/filename.html"}
 3. Update status: PATCH ${missionControlUrl}/api/tasks/${task.id}
    Body: {"status": "review"}
+4. At end, set done when approved: PATCH ${missionControlUrl}/api/tasks/${task.id}
+   Body: {"status": "done"}
 
 When complete, reply with:
 \`TASK_COMPLETE: [brief summary of what you did]\`
