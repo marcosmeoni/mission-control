@@ -54,6 +54,10 @@ export async function PATCH(
 
     const validatedData = validation.data;
 
+    // Detect agent-API calls (Bearer token) vs human UI calls (cookie session)
+    const authHeader = request.headers.get('authorization') || '';
+    const isBearerCall = authHeader.toLowerCase().startsWith('bearer ');
+
     const existing = queryOne<Task>('SELECT * FROM tasks WHERE id = ?', [id]);
     if (!existing) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
@@ -63,9 +67,16 @@ export async function PATCH(
     const values: unknown[] = [];
     const now = new Date().toISOString();
 
-    // Workflow enforcement for agent-initiated approvals
-    // If an agent is trying to move review→done, they must be a master agent
-    // User-initiated moves (no agent ID) are allowed
+    // Workflow enforcement for approvals
+    // 1) Bearer/API calls (agents) cannot auto-complete to done; they are forced to review.
+    // 2) If an agent ID is explicitly provided for review->done, it must be a master agent.
+    if (validatedData.status === 'done' && isBearerCall) {
+      return NextResponse.json(
+        { error: 'Agent/API calls cannot set done directly. Move task to review/approval and approve manually.' },
+        { status: 403 }
+      );
+    }
+
     if (validatedData.status === 'done' && existing.status === 'review' && validatedData.updated_by_agent_id) {
       const updatingAgent = queryOne<Agent>(
         'SELECT is_master FROM agents WHERE id = ?',
