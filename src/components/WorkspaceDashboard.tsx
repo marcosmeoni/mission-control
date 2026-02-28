@@ -9,9 +9,11 @@ export function WorkspaceDashboard() {
   const [workspaces, setWorkspaces] = useState<WorkspaceStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [usage, setUsage] = useState<any>(null);
 
   useEffect(() => {
     loadWorkspaces();
+    loadUsage();
   }, []);
 
   const loadWorkspaces = async () => {
@@ -25,6 +27,15 @@ export function WorkspaceDashboard() {
       console.error('Failed to load workspaces:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUsage = async () => {
+    try {
+      const res = await fetch('/api/usage/summary');
+      if (res.ok) setUsage(await res.json());
+    } catch (error) {
+      console.error('Failed to load usage summary:', error);
     }
   };
 
@@ -69,6 +80,53 @@ export function WorkspaceDashboard() {
             Select a workspace to view its mission queue and agents
           </p>
         </div>
+
+        {usage && (
+          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="bg-mc-bg-secondary border border-mc-border rounded-lg p-3">
+              <div className="text-xs text-mc-text-secondary">Total tokens</div>
+              <div className="text-lg font-semibold">{Number(usage?.total?.totalTokens || 0).toLocaleString()}</div>
+            </div>
+            <div className="bg-mc-bg-secondary border border-mc-border rounded-lg p-3">
+              <div className="text-xs text-mc-text-secondary">Input / Output</div>
+              <div className="text-sm font-medium">{Number(usage?.total?.inputTokens || 0).toLocaleString()} / {Number(usage?.total?.outputTokens || 0).toLocaleString()}</div>
+            </div>
+            <div className="bg-mc-bg-secondary border border-mc-border rounded-lg p-3">
+              <div className="text-xs text-mc-text-secondary">Active sessions</div>
+              <div className="text-lg font-semibold">{Number(usage?.sessionsCount || 0)}</div>
+            </div>
+            <div className="bg-mc-bg-secondary border border-mc-border rounded-lg p-3">
+              <div className="text-xs text-mc-text-secondary">Top model</div>
+              <div className="text-sm font-medium truncate">{Object.entries(usage?.byModel || {}).sort((a: any,b: any)=> (b[1].totalTokens||0)-(a[1].totalTokens||0))[0]?.[0] || '—'}</div>
+            </div>
+          </div>
+        )}
+
+        {usage && (
+          <div className="mb-8 bg-mc-bg-secondary border border-mc-border rounded-lg p-3 overflow-auto">
+            <div className="text-sm font-semibold mb-2">Usage por agente/modelo (top 10)</div>
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="text-mc-text-secondary text-left border-b border-mc-border">
+                  <th className="py-2 pr-2">Agent</th>
+                  <th className="py-2 pr-2">Workspace</th>
+                  <th className="py-2 pr-2">Model</th>
+                  <th className="py-2 pr-2">Tokens</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(usage.byAgent || []).slice(0,10).map((r: any) => (
+                  <tr key={`${r.agentId}-${r.model}`} className="border-b border-mc-border/40">
+                    <td className="py-2 pr-2">{r.agentName}</td>
+                    <td className="py-2 pr-2">{r.workspaceId}</td>
+                    <td className="py-2 pr-2">{r.model}</td>
+                    <td className="py-2 pr-2">{Number(r.totalTokens||0).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {workspaces.length === 0 ? (
           <div className="text-center py-12 sm:py-16">
