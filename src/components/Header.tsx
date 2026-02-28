@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Zap, Settings, ChevronLeft, LayoutGrid } from 'lucide-react';
+import { Zap, Settings, ChevronLeft, LayoutGrid, LogOut } from 'lucide-react';
 import { useMissionControl } from '@/lib/store';
 import { format } from 'date-fns';
 import type { Workspace } from '@/lib/types';
@@ -45,6 +45,15 @@ export function Header({ workspace }: HeaderProps) {
   const workingAgents = agents.filter((a) => a.status === 'working').length;
   const activeAgents = workingAgents + activeSubAgents;
   const tasksInQueue = tasks.filter((t) => t.status !== 'done' && t.status !== 'review').length;
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      router.push('/login');
+      router.refresh();
+    }
+  };
 
   return (
     <header className="h-14 bg-mc-bg-secondary border-b border-mc-border flex items-center justify-between px-2 sm:px-4 flex-shrink-0">
@@ -118,6 +127,13 @@ export function Header({ workspace }: HeaderProps) {
           />
           <span className="hidden sm:inline">{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
         </div>
+        <button
+          onClick={handleLogout}
+          className="p-2 hover:bg-mc-bg-tertiary rounded text-mc-text-secondary min-w-[44px] min-h-[44px] flex items-center justify-center"
+          title="Logout"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
         <button
           onClick={() => router.push('/settings')}
           className="p-2 hover:bg-mc-bg-tertiary rounded text-mc-text-secondary min-w-[44px] min-h-[44px] flex items-center justify-center"
