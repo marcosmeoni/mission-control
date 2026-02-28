@@ -48,7 +48,15 @@ function EditorInner() {
     <main className="min-h-screen bg-mc-bg text-mc-text p-4 sm:p-6">
       <div className="max-w-6xl mx-auto space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h1 className="text-lg font-semibold">Editor</h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => (window.history.length > 1 ? history.back() : (window.location.href = '/'))}
+              className="px-3 py-2 rounded bg-mc-bg border border-mc-border text-sm"
+            >
+              ← Volver
+            </button>
+            <h1 className="text-lg font-semibold">Editor</h1>
+          </div>
           <button onClick={save} className="px-3 py-2 rounded bg-mc-accent text-mc-bg text-sm">Guardar</button>
         </div>
 

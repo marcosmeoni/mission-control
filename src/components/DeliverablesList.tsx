@@ -97,7 +97,7 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
   const handlePreview = (deliverable: TaskDeliverable) => {
     if (deliverable.path) {
       debug.file('Opening preview', { path: deliverable.path });
-      window.open(`/api/files/preview?path=${encodeURIComponent(deliverable.path)}`, '_blank');
+      window.open(`/viewer?path=${encodeURIComponent(deliverable.path)}`, '_blank');
     }
   };
 
