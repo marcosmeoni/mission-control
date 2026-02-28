@@ -51,6 +51,7 @@ export async function GET() {
 
     const total = { inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, estCostUsd: 0 };
     const byModel: Record<string, { inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
+    const byWorkspace: Record<string, { workspaceId: string; inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
     const byAgent: Record<string, { agentId: string; agentName: string; workspaceId: string; model: string; inputTokens: number; outputTokens: number; totalTokens: number; sessions: number; estCostUsd: number }> = {};
 
     for (const s of sessions) {
@@ -84,6 +85,17 @@ export async function GET() {
       const agentId = mapBySession.get(maybeSessionId);
       if (agentId) {
         const agent = mapAgent.get(agentId);
+        const workspaceId = agent?.workspace_id || 'unknown';
+
+        if (!byWorkspace[workspaceId]) {
+          byWorkspace[workspaceId] = { workspaceId, inputTokens: 0, outputTokens: 0, totalTokens: 0, sessions: 0, estCostUsd: 0 };
+        }
+        byWorkspace[workspaceId].inputTokens += input;
+        byWorkspace[workspaceId].outputTokens += output;
+        byWorkspace[workspaceId].totalTokens += t;
+        byWorkspace[workspaceId].sessions += 1;
+        byWorkspace[workspaceId].estCostUsd += est;
+
         const label = agent?.name || agentId;
         const k = `${agentId}::${model}`;
         if (!byAgent[k]) {
@@ -110,6 +122,7 @@ export async function GET() {
     return NextResponse.json({
       total,
       byModel,
+      byWorkspace: Object.values(byWorkspace).sort((a, b) => b.totalTokens - a.totalTokens),
       byAgent: Object.values(byAgent).sort((a, b) => b.totalTokens - a.totalTokens).slice(0, 20),
       pricing,
       sessionsCount: sessions.length,

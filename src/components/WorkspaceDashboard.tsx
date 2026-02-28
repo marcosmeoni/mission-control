@@ -103,6 +103,30 @@ export function WorkspaceDashboard() {
         )}
 
         {usage && (
+          <div className="mb-4 bg-mc-bg-secondary border border-mc-border rounded-lg p-3 overflow-auto">
+            <div className="text-sm font-semibold mb-2">Costo por workspace</div>
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="text-mc-text-secondary text-left border-b border-mc-border">
+                  <th className="py-2 pr-2">Workspace</th>
+                  <th className="py-2 pr-2">Tokens</th>
+                  <th className="py-2 pr-2">Costo USD</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(usage.byWorkspace || []).map((r: any) => (
+                  <tr key={r.workspaceId} className="border-b border-mc-border/40">
+                    <td className="py-2 pr-2">{r.workspaceId}</td>
+                    <td className="py-2 pr-2">{Number(r.totalTokens||0).toLocaleString()}</td>
+                    <td className="py-2 pr-2">${Number(r.estCostUsd||0).toFixed(4)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {usage && (
           <div className="mb-8 bg-mc-bg-secondary border border-mc-border rounded-lg p-3 overflow-auto">
             <div className="text-sm font-semibold mb-2">Usage por agente/modelo (top 10)</div>
             <table className="w-full text-xs sm:text-sm">
