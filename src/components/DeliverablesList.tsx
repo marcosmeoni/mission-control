@@ -6,7 +6,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { FileText, Link as LinkIcon, Package, ExternalLink, Eye } from 'lucide-react';
+import { FileText, Link as LinkIcon, Package, ExternalLink, Eye, FileCode } from 'lucide-react';
 import { debug } from '@/lib/debug';
 import type { TaskDeliverable } from '@/lib/types';
 
@@ -101,6 +101,11 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
     }
   };
 
+  const handleEdit = (deliverable: TaskDeliverable) => {
+    if (!deliverable.path) return;
+    window.open(`/editor?path=${encodeURIComponent(deliverable.path)}`, '_blank');
+  };
+
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleDateString('en-US', {
@@ -166,6 +171,16 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
                     title="Preview in browser"
                   >
                     <Eye className="w-4 h-4" />
+                  </button>
+                )}
+                {/* Edit button for files */}
+                {deliverable.deliverable_type === 'file' && deliverable.path && (
+                  <button
+                    onClick={() => handleEdit(deliverable)}
+                    className="flex-shrink-0 p-1.5 hover:bg-mc-bg-tertiary rounded text-mc-accent-purple"
+                    title="Open in editor"
+                  >
+                    <FileCode className="w-4 h-4" />
                   </button>
                 )}
                 {/* Open/Reveal button */}
