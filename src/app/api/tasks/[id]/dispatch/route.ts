@@ -5,6 +5,7 @@ import { queryOne, queryAll, run } from '@/lib/db';
 import { getOpenClawClient } from '@/lib/openclaw/client';
 import { broadcast } from '@/lib/events';
 import { getProjectsPath } from '@/lib/config';
+import { recallMemory, formatMemoryBlock } from '@/lib/memory';
 import { enqueueRoomMessage, startQueueWorker } from '@/lib/queue';
 import type { Task, Agent, OpenClawSession } from '@/lib/types';
 
@@ -286,12 +287,17 @@ If you need help or clarification, ask the orchestrator.`;
 
     // Send message to agent's session using chat.send
     try {
+      // Recall and inject hybrid memory context into the task message
+      const memory = recallMemory(agent.id, task.title, task.description);
+      const memoryBlock = formatMemoryBlock(memory);
+      const fullMessage = taskMessage + memoryBlock;
+
       // Use sessionKey for routing to the agent's session
       // Format: agent:main:{openclaw_session_id}
       const sessionKey = `agent:main:${session.openclaw_session_id}`;
       await client.call('chat.send', {
         sessionKey,
-        message: taskMessage,
+        message: fullMessage,
         idempotencyKey: `dispatch-${task.id}-${Date.now()}`
       });
 

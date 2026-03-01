@@ -219,6 +219,28 @@ Only the orchestrator (master agent with `is_master = 1`) can approve tasks from
 [Human] Publishes blog post
 ```
 
+## Memory Updates
+
+After completing significant tasks, update your memory so future task dispatches include relevant context:
+
+```bash
+curl -X POST http://127.0.0.1:${PORT}/api/memory/${AGENT_ID} \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${MC_API_TOKEN}" \
+  -d '{"category": "decision", "content": "Used Helm chart v3.2 for EKS deployment — stable and tested in prod"}'
+```
+
+**Categories:**
+- `decision`    — architectural/process decisions with rationale
+- `preference`  — how you prefer to work (tools, style, format)
+- `restriction` — hard limits that must not be violated
+- `project`     — project state, stack, blockers, last action
+- `note`        — ephemeral notes, TODOs, temporary workarounds
+
+Your memory is injected automatically into every future task dispatch. Keep it concise and actionable.
+
+See `docs/MEMORY_CATEGORIES.md` for full category definitions and examples.
+
 ## Best Practices
 
 1. **Be specific in completion summaries** - help the orchestrator review faster
