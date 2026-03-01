@@ -1,0 +1,68 @@
+# docker-compose.pgvector.yml
+# Local Supabase-compatible pgvector stack for hybrid memory
+#
+# Includes:
+#   - PostgreSQL 16 with pgvector extension (Supabase-style)
+#   - PostgREST for auto-generated REST API (mirrors Supabase Data API)
+#   - pgAdmin (optional UI) at http://localhost:5050
+#
+# Usage:
+#   docker compose -f docker-compose.pgvector.yml up -d
+#   # Run migrations:
+#   docker compose -f docker-compose.pgvector.yml exec db psql -U postgres -d memory -f /migrations/001_memories.sql
+
+version: "3.9"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: memory-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: memory
+    ports:
+      - "54322:5432"
+    volumes:
+      - memory-db-data:/var/lib/postgresql/data
+      - ./supabase/migrations:/migrations:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgrest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: memory-rest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://postgres:postgres@db:5432/memory
+      PGRST_DB_SCHEMA: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: super-secret-jwt-token-for-local-dev-only
+      PGRST_DB_MAX_ROWS: 1000
+      PGRST_LOG_LEVEL: info
+    ports:
+      - "54321:3000"
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: memory-pgadmin
+    restart: unless-stopped
+    profiles: ["admin"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  memory-db-data:

@@ -51,3 +51,4 @@ next-env.d.ts
 *.backup
 *.bak
 *.db.backup
+.env.memory
