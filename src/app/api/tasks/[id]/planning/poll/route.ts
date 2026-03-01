@@ -17,6 +17,8 @@ if (isNaN(PLANNING_POLL_INTERVAL_MS) || PLANNING_POLL_INTERVAL_MS < 100) {
   throw new Error('PLANNING_POLL_INTERVAL_MS must be a valid number >= 100ms');
 }
 
+const PLANNING_AUTO_CREATE_AGENTS = process.env.MC_PLANNING_AUTO_CREATE_AGENTS === 'true';
+
 // Helper to handle planning completion with proper error handling and rollback
 async function handlePlanningCompletion(taskId: string, parsed: any, messages: any[]) {
   const db = getDb();
@@ -42,8 +44,8 @@ async function handlePlanningCompletion(taskId: string, parsed: any, messages: a
       taskId
     );
 
-    // Create the agents in the workspace and track first agent for auto-assign
-    if (parsed.agents && parsed.agents.length > 0) {
+    // Create agents only when explicitly enabled. By default, planning should NOT create agents.
+    if (PLANNING_AUTO_CREATE_AGENTS && parsed.agents && parsed.agents.length > 0) {
       const insertAgent = db.prepare(`
         INSERT INTO agents (id, workspace_id, name, role, description, avatar_emoji, status, soul_md, created_at, updated_at)
         VALUES (?, (SELECT workspace_id FROM tasks WHERE id = ?), ?, ?, ?, ?, 'standby', ?, datetime('now'), datetime('now'))
