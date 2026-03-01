@@ -17,13 +17,18 @@
 
 import fs from 'fs';
 import path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 
 const MEMORY_BASE = path.join(process.cwd(), 'data', 'memory');
+const execFileAsync = promisify(execFile);
+const SEMANTIC_RECALL_ENABLED = process.env.MC_MEMORY_SEMANTIC_RECALL === 'true';
 
 export interface RecalledMemory {
   workspace?: string;
   agent?: string;
   project?: string;
+  semantic?: string;
 }
 
 /**
@@ -63,23 +68,64 @@ function matchProjectMemory(taskText: string): string | null {
 }
 
 /**
+ * Optionally recall semantic memories from pgvector scripts.
+ * Expects scripts/memory/recall_memories.js and env (.env.memory) configured.
+ */
+async function recallSemanticMemory(query: string): Promise<string | undefined> {
+  if (!SEMANTIC_RECALL_ENABLED) return undefined;
+
+  const scriptPath = path.join(process.cwd(), 'scripts', 'memory', 'recall_memories.js');
+  if (!fs.existsSync(scriptPath)) return undefined;
+
+  try {
+    const { stdout } = await execFileAsync('node', [scriptPath, '--query', query, '--limit', '3', '--json'], {
+      cwd: process.cwd(),
+      timeout: 12000,
+      maxBuffer: 1024 * 1024,
+    });
+
+    const rows = JSON.parse(stdout || '[]') as Array<{
+      category?: string;
+      summary?: string;
+      content?: string;
+      similarity?: number;
+    }>;
+
+    if (!Array.isArray(rows) || rows.length === 0) return undefined;
+
+    return rows
+      .slice(0, 3)
+      .map((r, i) => {
+        const score = typeof r.similarity === 'number' ? ` (${(r.similarity * 100).toFixed(0)}%)` : '';
+        const title = r.summary || r.category || `memory-${i + 1}`;
+        const body = (r.content || '').trim();
+        return `- **${title}**${score}: ${body}`;
+      })
+      .join('\n');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Recall all relevant memories for a task dispatch.
  *
- * @param agentId   - The agent's DB id (used to find data/memory/agents/{agentId}.md)
+ * @param agentMemoryKey - Prefer gateway_agent_id; fallback to DB id
  * @param taskTitle - Task title (used for project matching)
  * @param taskDescription - Optional task description (also used for project matching)
  */
-export function recallMemory(
-  agentId: string,
+export async function recallMemory(
+  agentMemoryKey: string,
   taskTitle: string,
   taskDescription?: string | null
-): RecalledMemory {
+): Promise<RecalledMemory> {
   const taskText = `${taskTitle} ${taskDescription || ''}`;
 
   return {
     workspace: loadMemoryFile(path.join(MEMORY_BASE, 'workspace.md')) ?? undefined,
-    agent: loadMemoryFile(path.join(MEMORY_BASE, 'agents', `${agentId}.md`)) ?? undefined,
+    agent: loadMemoryFile(path.join(MEMORY_BASE, 'agents', `${agentMemoryKey}.md`)) ?? undefined,
     project: matchProjectMemory(taskText) ?? undefined,
+    semantic: await recallSemanticMemory(taskText),
   };
 }
 
@@ -98,6 +144,9 @@ export function formatMemoryBlock(memory: RecalledMemory): string {
   }
   if (memory.project) {
     sections.push(`### 📁 Project Context\n${memory.project}`);
+  }
+  if (memory.semantic) {
+    sections.push(`### 🔎 Semantic Recall (DB)\n${memory.semantic}`);
   }
 
   if (sections.length === 0) return '';

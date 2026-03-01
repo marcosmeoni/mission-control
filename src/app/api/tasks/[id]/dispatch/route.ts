@@ -288,7 +288,8 @@ If you need help or clarification, ask the orchestrator.`;
     // Send message to agent's session using chat.send
     try {
       // Recall and inject hybrid memory context into the task message
-      const memory = recallMemory(agent.id, task.title, task.description);
+      const memoryKey = agent.gateway_agent_id || agent.id;
+      const memory = await recallMemory(memoryKey, task.title, task.description);
       const memoryBlock = formatMemoryBlock(memory);
       const fullMessage = taskMessage + memoryBlock;
 
