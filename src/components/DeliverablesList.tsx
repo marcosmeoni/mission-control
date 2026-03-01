@@ -6,7 +6,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { FileText, Link as LinkIcon, Package, ExternalLink, Eye, FileCode, Share2 } from 'lucide-react';
+import { FileText, Link as LinkIcon, Package, ExternalLink, Eye, FileCode, Share2, X } from 'lucide-react';
 import { debug } from '@/lib/debug';
 import type { TaskDeliverable } from '@/lib/types';
 
@@ -17,6 +17,11 @@ interface DeliverablesListProps {
 export function DeliverablesList({ taskId }: DeliverablesListProps) {
   const [deliverables, setDeliverables] = useState<TaskDeliverable[]>([]);
   const [loading, setLoading] = useState(true);
+  const [shareDialog, setShareDialog] = useState<{ open: boolean; url: string; title: string }>({
+    open: false,
+    url: '',
+    title: '',
+  });
 
   const loadDeliverables = useCallback(async () => {
     try {
@@ -120,11 +125,31 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
     }
 
     const url = `${window.location.origin}/public/${data.token}`;
+    setShareDialog({ open: true, url, title: deliverable.title });
+  };
+
+  const handleCopyShareUrl = async () => {
+    if (!shareDialog.url) return;
     try {
-      await navigator.clipboard.writeText(url);
-      alert(`Link público copiado:\n${url}`);
+      await navigator.clipboard.writeText(shareDialog.url);
+      alert('Link copiado al portapapeles');
     } catch {
-      alert(`Link público:\n${url}`);
+      alert('No se pudo copiar automáticamente');
+    }
+  };
+
+  const handleNativeShare = async () => {
+    if (!shareDialog.url) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareDialog.title || 'Entregable',
+          text: shareDialog.title || 'Entregable',
+          url: shareDialog.url,
+        });
+      } catch {
+        // user canceled share sheet
+      }
     }
   };
 
@@ -156,12 +181,13 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
   }
 
   return (
-    <div className="space-y-3">
-      {deliverables.map((deliverable) => (
-        <div
-          key={deliverable.id}
-          className="flex gap-3 p-3 bg-mc-bg rounded-lg border border-mc-border hover:border-mc-accent transition-colors"
-        >
+    <>
+      <div className="space-y-3">
+        {deliverables.map((deliverable) => (
+          <div
+            key={deliverable.id}
+            className="flex gap-3 p-3 bg-mc-bg rounded-lg border border-mc-border hover:border-mc-accent transition-colors"
+          >
           {/* Icon */}
           <div className="flex-shrink-0 text-mc-accent">
             {getDeliverableIcon(deliverable.deliverable_type)}
@@ -261,7 +287,66 @@ export function DeliverablesList({ taskId }: DeliverablesListProps) {
             </div>
           </div>
         </div>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      {shareDialog.open && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-mc-bg-secondary border border-mc-border rounded-lg shadow-xl">
+            <div className="flex items-center justify-between p-3 border-b border-mc-border">
+              <h3 className="text-sm sm:text-base font-medium truncate">Compartir entregable</h3>
+              <button
+                onClick={() => setShareDialog({ open: false, url: '', title: '' })}
+                className="p-1.5 hover:bg-mc-bg-tertiary rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 space-y-3">
+              <div className="text-xs text-mc-text-secondary">{shareDialog.title}</div>
+              <div className="p-2 bg-mc-bg-tertiary rounded text-xs font-mono break-all border border-mc-border">
+                {shareDialog.url}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  onClick={handleCopyShareUrl}
+                  className="px-3 py-2 rounded bg-mc-accent text-mc-bg text-xs font-medium"
+                >
+                  Copiar
+                </button>
+
+                <a
+                  href={shareDialog.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-2 rounded border border-mc-border text-center text-xs hover:bg-mc-bg-tertiary"
+                >
+                  Abrir
+                </a>
+
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`Te comparto este entregable: ${shareDialog.url}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-2 rounded border border-mc-border text-center text-xs hover:bg-mc-bg-tertiary"
+                >
+                  WhatsApp
+                </a>
+
+                <button
+                  onClick={handleNativeShare}
+                  disabled={!navigator.share}
+                  className="px-3 py-2 rounded border border-mc-border text-xs hover:bg-mc-bg-tertiary disabled:opacity-40"
+                >
+                  Compartir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
