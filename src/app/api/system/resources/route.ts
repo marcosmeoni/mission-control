@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 import { readFile } from 'fs/promises';
 
 // Lightweight /proc-based resource collection (Linux)
@@ -158,21 +161,30 @@ export async function GET() {
       getTopProcesses(5),
     ]);
 
-    return NextResponse.json({
-      cpu: {
-        percentUsed: cpu,
+    return NextResponse.json(
+      {
+        cpu: {
+          percentUsed: cpu,
+        },
+        memory: {
+          ...mem,
+          totalFormatted: formatBytes(mem.totalBytes),
+          usedFormatted: formatBytes(mem.usedBytes),
+          swapTotalFormatted: formatBytes(mem.swapTotalBytes),
+          swapUsedFormatted: formatBytes(mem.swapUsedBytes),
+        },
+        load,
+        processes: topProcs,
+        collectedAt: new Date().toISOString(),
       },
-      memory: {
-        ...mem,
-        totalFormatted: formatBytes(mem.totalBytes),
-        usedFormatted: formatBytes(mem.usedBytes),
-        swapTotalFormatted: formatBytes(mem.swapTotalBytes),
-        swapUsedFormatted: formatBytes(mem.swapUsedBytes),
-      },
-      load,
-      processes: topProcs,
-      collectedAt: new Date().toISOString(),
-    });
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });

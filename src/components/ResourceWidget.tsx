@@ -53,7 +53,7 @@ export function ResourceWidget() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/system/resources');
+      const res = await fetch(`/api/system/resources?t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: ResourceData = await res.json();
       setData(json);
