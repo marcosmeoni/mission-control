@@ -31,8 +31,14 @@ interface MemoryHealthResponse {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function worstStatus(checks: Check[]): TrafficLight {
-  if (checks.some(c => c.status === 'red')) return 'red';
-  if (checks.some(c => c.status === 'yellow')) return 'yellow';
+  // Optional warnings (like PostgREST not configured) should not downgrade overall health.
+  const effectiveChecks = checks.filter(c => {
+    const optionalPostgrest = c.name === 'PostgREST' && c.status === 'yellow' && c.message.toLowerCase().includes('optional');
+    return !optionalPostgrest;
+  });
+
+  if (effectiveChecks.some(c => c.status === 'red')) return 'red';
+  if (effectiveChecks.some(c => c.status === 'yellow')) return 'yellow';
   return 'green';
 }
 
