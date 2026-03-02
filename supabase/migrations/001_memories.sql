@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS memories (
   category      memory_category NOT NULL DEFAULT 'other',
 
   -- Semantic embedding (text-embedding-3-small → 1536 dims; change as needed)
-  embedding     VECTOR(1536),
+  embedding     VECTOR(768),
 
   -- Structured metadata
   source        TEXT,                          -- e.g. "whatsapp", "agent", "manual"
@@ -97,7 +97,7 @@ CREATE TRIGGER memories_updated_at
 -- Called via PostgREST: POST /rpc/recall_memories
 -- ─────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION recall_memories(
-  query_embedding   VECTOR(1536),
+  query_embedding   VECTOR(768),
   match_threshold   FLOAT   DEFAULT 0.75,
   match_count       INT     DEFAULT 10,
   filter_category   TEXT    DEFAULT NULL,
