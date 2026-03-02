@@ -41,9 +41,12 @@ function parseMeta(m: RoomMessage): Record<string, unknown> {
 function getMessageCategory(m: RoomMessage): FilterChip {
   const meta = parseMeta(m);
   const subtype = meta.subtype as string | undefined;
+  const lc = (m.content || '').toLowerCase();
   if (subtype === 'tool_summary') return 'tools';
-  if (m.message_type === 'task_update' || subtype === 'task_update') return 'status';
   if (m.content.startsWith('🔧')) return 'tools';
+  // Cursor/agent textual tool reports should appear under Tools tab too
+  if (lc.includes('tool call') || lc.includes('tool_result') || lc.includes('tool result')) return 'tools';
+  if (m.message_type === 'task_update' || subtype === 'task_update') return 'status';
   if (
     m.message_type === 'system' &&
     (m.content.startsWith('🚀') || m.content.startsWith('✅') ||
@@ -76,7 +79,11 @@ function getBubbleStyle(m: RoomMessage, isHuman: boolean): string {
 function getBadge(m: RoomMessage): { emoji: string; label: string } | null {
   const meta = parseMeta(m);
   const subtype = meta.subtype as string | undefined;
+  const lc = (m.content || '').toLowerCase();
   if (subtype === 'tool_summary') return { emoji: '🔧', label: 'Tool' };
+  if (m.content.startsWith('🔧') || lc.includes('tool call') || lc.includes('tool_result') || lc.includes('tool result')) {
+    return { emoji: '🔧', label: 'Tool' };
+  }
   if (m.content.startsWith('🔄')) return { emoji: '🔄', label: 'Output' };
   if (m.message_type === 'task_update') return { emoji: '📋', label: 'Status' };
   if (m.content.startsWith('🚀')) return { emoji: '🚀', label: 'Dispatch' };
