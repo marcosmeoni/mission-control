@@ -14,6 +14,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryAll, queryOne, run } from '@/lib/db';
 import { broadcast } from '@/lib/events';
+import { notifyTaskStatusChange } from '@/lib/notifier';
 import { getDispatchTimeoutMs, getDispatchTimeoutCheckMs } from '@/lib/config';
 import type { Task } from '@/lib/types';
 
@@ -98,5 +99,8 @@ function checkTimedOutTasks(): void {
     if (updatedTask) {
       broadcast({ type: 'task_updated', payload: updatedTask });
     }
+    // Notify on timeout-induced blocked transition
+    notifyTaskStatusChange(task.id, task.title, 'blocked', null)
+      .catch(err => console.error('[Notifier] timeout-guard blocked notify error:', err));
   }
 }

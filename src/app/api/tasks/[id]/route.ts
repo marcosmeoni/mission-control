@@ -5,6 +5,7 @@ import { broadcast } from '@/lib/events';
 import { getMissionControlUrl } from '@/lib/config';
 import { UpdateTaskSchema } from '@/lib/validation';
 import type { Task, UpdateTaskRequest, Agent, TaskDeliverable } from '@/lib/types';
+import { notifyTaskStatusChange } from '@/lib/notifier';
 
 // GET /api/tasks/[id] - Get a single task
 export async function GET(
@@ -199,6 +200,16 @@ export async function PATCH(
         type: 'task_updated',
         payload: task,
       });
+    }
+
+    // Real-time WhatsApp notification for key status transitions
+    if (task && validatedData.status !== undefined && validatedData.status !== existing.status) {
+      notifyTaskStatusChange(
+        id,
+        task.title,
+        validatedData.status,
+        (task as Task & { workspace_name?: string }).workspace_name ?? null
+      ).catch(err => console.error('[Notifier] Async notification error:', err));
     }
 
     // Trigger auto-dispatch if needed

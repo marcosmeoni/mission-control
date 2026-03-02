@@ -9,6 +9,7 @@ import { broadcast } from '@/lib/events';
 import { CreateActivitySchema } from '@/lib/validation';
 import { startDispatchTimeoutGuard } from '@/lib/dispatch-timeout-guard';
 import type { Task, TaskActivity } from '@/lib/types';
+import { notifyTaskStatusChange } from '@/lib/notifier';
 
 /**
  * GET /api/tasks/[id]/activities
@@ -175,12 +176,15 @@ export async function POST(
     // Immediate in_progress promotion: if an agent logs an activity and the task
     // is still in assigned/dispatched state, escalate to in_progress.
     if (agent_id) {
-      const currentTask = db.prepare('SELECT status FROM tasks WHERE id = ?').get(taskId) as { status: string } | undefined;
+      const currentTask = db.prepare('SELECT status, title FROM tasks WHERE id = ?').get(taskId) as { status: string; title: string } | undefined;
       if (currentTask && (currentTask.status === 'assigned' || currentTask.status === 'dispatched')) {
         const now = new Date().toISOString();
         db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').run('in_progress', now, taskId);
         const promoted = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId) as Task | undefined;
         if (promoted) broadcast({ type: 'task_updated', payload: promoted });
+        // Notify on auto-promotion to in_progress
+        notifyTaskStatusChange(taskId, currentTask.title, 'in_progress', null)
+          .catch(err => console.error('[Notifier] in_progress promotion notify error:', err));
       }
     }
 
