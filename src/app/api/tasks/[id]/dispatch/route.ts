@@ -54,6 +54,15 @@ function pickSpecialist(taskTitle: string, taskDescription?: string | null): str
   return null;
 }
 
+function isCodingTask(taskTitle: string, taskDescription?: string | null): boolean {
+  const text = `${taskTitle} ${taskDescription || ''}`.toLowerCase();
+  const codingHints = [
+    'code', 'coding', 'refactor', 'bug', 'fix', 'feature', 'implement', 'script',
+    '.ts', '.tsx', '.js', '.py', '.tf', '.yaml', '.yml', 'repo', 'pull request', 'pr', 'mr'
+  ];
+  return codingHints.some((h) => text.includes(h));
+}
+
 /**
  * POST /api/tasks/[id]/dispatch
  * 
@@ -256,13 +265,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const missionControlApiToken = process.env.MC_API_TOKEN || '';
 
+    const forceCursorForCode = process.env.MC_FORCE_CURSOR_FOR_CODE !== 'false';
+    const useCursorForThisTask = forceCursorForCode && isCodingTask(task.title, task.description);
+    const executionModeBlock = useCursorForThisTask
+      ? `\n**EXECUTION MODE (REQUIRED):** CURSOR_CLI\nThis is a coding task. Execute implementation using Cursor CLI workflow.\nWhen reporting progress, mention command-style prefix: \`cursor: <task>\`.`
+      : '';
+
     const taskMessage = `${priorityEmoji} **NEW TASK ASSIGNED**
 
 **Title:** ${task.title}
 ${task.description ? `**Description:** ${task.description}\n` : ''}
 **Priority:** ${task.priority.toUpperCase()}
 ${task.due_date ? `**Due:** ${task.due_date}\n` : ''}
-**Task ID:** ${task.id}
+**Task ID:** ${task.id}${executionModeBlock}
 
 **OUTPUT DIRECTORY:** ${taskProjectDir}
 Create this directory and save all deliverables there.
