@@ -61,7 +61,7 @@ export function ActivityLog({ taskId }: ActivityLogProps) {
 
   // Poll for new activities every 5 seconds when task is in progress
   useEffect(() => {
-    const pollInterval = setInterval(pollForActivities, 5000);
+    const pollInterval = setInterval(pollForActivities, 3000);
 
     pollingRef.current = pollInterval;
 

@@ -162,3 +162,53 @@ export function getProjectPath(projectName: string, subpath?: string): string {
   const base = `${projectsPath}/${projectName}`;
   return subpath ? `${base}/${subpath}` : base;
 }
+
+// ---------------------------------------------------------------------------
+// Polling & responsiveness configuration (server-side env vars)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fallback task-list poll interval in ms (workspace page).
+ * MC_TASK_POLL_MS – default 30 000 ms (30 s). Set lower for snappier fallback.
+ */
+export function getTaskPollIntervalMs(): number {
+  const v = parseInt(process.env.MC_TASK_POLL_MS || '', 10);
+  return isNaN(v) ? 30_000 : v;
+}
+
+/**
+ * Task-room (chat) poll interval in ms.
+ * MC_ROOM_POLL_MS – default 3 000 ms (3 s).
+ */
+export function getRoomPollIntervalMs(): number {
+  const v = parseInt(process.env.MC_ROOM_POLL_MS || '', 10);
+  return isNaN(v) ? 3_000 : v;
+}
+
+/**
+ * Activity-log poll interval in ms.
+ * MC_ACTIVITY_POLL_MS – default 3 000 ms (3 s).
+ */
+export function getActivityPollIntervalMs(): number {
+  const v = parseInt(process.env.MC_ACTIVITY_POLL_MS || '', 10);
+  return isNaN(v) ? 3_000 : v;
+}
+
+/**
+ * Dispatch-timeout guard window in ms.
+ * If a dispatched task has no agent activity within this window it is marked blocked.
+ * MC_DISPATCH_TIMEOUT_MS – default 300 000 ms (5 min). Set to 0 to disable.
+ */
+export function getDispatchTimeoutMs(): number {
+  const v = parseInt(process.env.MC_DISPATCH_TIMEOUT_MS || '', 10);
+  return isNaN(v) ? 300_000 : v;
+}
+
+/**
+ * How often the dispatch-timeout watcher runs.
+ * MC_DISPATCH_TIMEOUT_CHECK_MS – default 60 000 ms (1 min).
+ */
+export function getDispatchTimeoutCheckMs(): number {
+  const v = parseInt(process.env.MC_DISPATCH_TIMEOUT_CHECK_MS || '', 10);
+  return isNaN(v) ? 60_000 : v;
+}

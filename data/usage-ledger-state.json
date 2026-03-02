@@ -1,0 +1,187 @@
+{
+  "lastBySession": {
+    "agent:main:main": {
+      "input": 3,
+      "output": 8,
+      "total": 16868
+    },
+    "agent:main:whatsapp:direct:+5492364545076": {
+      "input": 4663,
+      "output": 22,
+      "total": 173623
+    },
+    "agent:main:mission-control-de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3-coord-tutenlabs-37828a6b": {
+      "input": 4,
+      "output": 933,
+      "total": 32925
+    },
+    "agent:main:mission-control-de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3-spec-finops-e8da2318": {
+      "input": 12,
+      "output": 4702,
+      "total": 115934
+    },
+    "agent:main:planning:58b5c659-9ae0-4e30-bd45-dff0ecd9c812": {
+      "input": 4,
+      "output": 275,
+      "total": 16965
+    },
+    "agent:main:planning:e8ad7d34-7e28-48ee-8cb9-9c81f026d411": {
+      "input": 3,
+      "output": 157,
+      "total": 16914
+    },
+    "agent:main:planning:733adc7b-20ec-4adc-b37f-bb8695f06c08": {
+      "input": 3,
+      "output": 654,
+      "total": 17190
+    },
+    "agent:main:mission-control-de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3-spec-k8s-cd5571e6": {
+      "input": 31,
+      "output": 6686,
+      "total": 37956
+    },
+    "agent:main:mission-control-de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3-spec-iac-e127b895": {
+      "input": 3,
+      "output": 685,
+      "total": 16932
+    },
+    "agent:main:mission-control-codex": {
+      "input": 5,
+      "output": 1164,
+      "total": 20198
+    },
+    "agent:main:subagent:6c6e0981-f27e-4d83-bbed-ca9b1aaf0d70": {
+      "input": 12,
+      "output": 4921,
+      "total": 20519
+    },
+    "agent:main:subagent:52be5548-1850-4959-b64a-bdb7790fece5": {
+      "input": 18,
+      "output": 19293,
+      "total": 37743
+    },
+    "agent:main:mission-control-de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3-costbot-11740913": {
+      "input": 12,
+      "output": 14141,
+      "total": 36754
+    },
+    "agent:main:planning:d7542faa-6a74-4eec-a3cc-e1cbec807ae8": {
+      "input": 3,
+      "output": 967,
+      "total": 18153
+    }
+  },
+  "cumulative": {
+    "inputTokens": 56624,
+    "outputTokens": 90733,
+    "totalTokens": 774182,
+    "sessions": 2,
+    "estCostUsd": 1.438906
+  },
+  "byModel": {
+    "anthropic/claude-sonnet-4-6": {
+      "inputTokens": 153,
+      "outputTokens": 85663,
+      "totalTokens": 534725,
+      "sessions": 0,
+      "estCostUsd": 1.2854039999999998
+    },
+    "openai-codex/gpt-5.3-codex": {
+      "inputTokens": 56471,
+      "outputTokens": 5070,
+      "totalTokens": 239457,
+      "sessions": 0,
+      "estCostUsd": 0.153502
+    }
+  },
+  "byWorkspace": {
+    "de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3": {
+      "workspaceId": "de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3",
+      "workspaceName": "Tuten",
+      "workspaceSlug": "tuten",
+      "inputTokens": 100,
+      "outputTokens": 57761,
+      "totalTokens": 369011,
+      "sessions": 0,
+      "estCostUsd": 0.8667149999999999
+    },
+    "default": {
+      "workspaceId": "default",
+      "workspaceName": "Default Workspace",
+      "workspaceSlug": "default",
+      "inputTokens": 5,
+      "outputTokens": 1164,
+      "totalTokens": 20198,
+      "sessions": 0,
+      "estCostUsd": 0.017475000000000004
+    }
+  },
+  "byAgent": {
+    "37828a6b-5879-4639-b196-f701a795a75d::anthropic/claude-sonnet-4-6": {
+      "agentId": "37828a6b-5879-4639-b196-f701a795a75d",
+      "agentName": "coord-tutenlabs",
+      "workspaceId": "de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3",
+      "model": "anthropic/claude-sonnet-4-6",
+      "inputTokens": 13,
+      "outputTokens": 8521,
+      "totalTokens": 107391,
+      "sessions": 0,
+      "estCostUsd": 0.127854
+    },
+    "e8da2318-94e5-43e1-895d-cae9de15e465::anthropic/claude-sonnet-4-6": {
+      "agentId": "e8da2318-94e5-43e1-895d-cae9de15e465",
+      "agentName": "spec-finops",
+      "workspaceId": "de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3",
+      "model": "anthropic/claude-sonnet-4-6",
+      "inputTokens": 54,
+      "outputTokens": 22720,
+      "totalTokens": 178410,
+      "sessions": 0,
+      "estCostUsd": 0.340962
+    },
+    "cd5571e6-0142-4121-b8d1-a2c63217636a::anthropic/claude-sonnet-4-6": {
+      "agentId": "cd5571e6-0142-4121-b8d1-a2c63217636a",
+      "agentName": "spec-k8s",
+      "workspaceId": "de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3",
+      "model": "anthropic/claude-sonnet-4-6",
+      "inputTokens": 18,
+      "outputTokens": 11694,
+      "totalTokens": 29524,
+      "sessions": 0,
+      "estCostUsd": 0.17546399999999998
+    },
+    "e127b895-54ea-4f88-9c4e-23ddaf1553b1::anthropic/claude-sonnet-4-6": {
+      "agentId": "e127b895-54ea-4f88-9c4e-23ddaf1553b1",
+      "agentName": "spec-iac",
+      "workspaceId": "de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3",
+      "model": "anthropic/claude-sonnet-4-6",
+      "inputTokens": 3,
+      "outputTokens": 685,
+      "totalTokens": 16932,
+      "sessions": 0,
+      "estCostUsd": 0.010284
+    },
+    "58d6e394-459b-4e40-909f-2396ec7b24f5::anthropic/claude-sonnet-4-6": {
+      "agentId": "58d6e394-459b-4e40-909f-2396ec7b24f5",
+      "agentName": "codex",
+      "workspaceId": "default",
+      "model": "anthropic/claude-sonnet-4-6",
+      "inputTokens": 5,
+      "outputTokens": 1164,
+      "totalTokens": 20198,
+      "sessions": 0,
+      "estCostUsd": 0.017475000000000004
+    },
+    "11740913-1b15-4087-9eb5-4452fe96dcae::anthropic/claude-sonnet-4-6": {
+      "agentId": "11740913-1b15-4087-9eb5-4452fe96dcae",
+      "agentName": "CostBot",
+      "workspaceId": "de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3",
+      "model": "anthropic/claude-sonnet-4-6",
+      "inputTokens": 12,
+      "outputTokens": 14141,
+      "totalTokens": 36754,
+      "sessions": 0,
+      "estCostUsd": 0.212151
+    }
+  }
+}

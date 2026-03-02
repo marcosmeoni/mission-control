@@ -34,7 +34,7 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 5000);
+    const t = setInterval(load, 3000);
     return () => clearInterval(t);
   }, [taskId]);
 

@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { broadcast } from '@/lib/events';
 import { CreateActivitySchema } from '@/lib/validation';
-import type { TaskActivity } from '@/lib/types';
+import { startDispatchTimeoutGuard } from '@/lib/dispatch-timeout-guard';
+import type { Task, TaskActivity } from '@/lib/types';
 
 /**
  * GET /api/tasks/[id]/activities
@@ -76,6 +77,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  startDispatchTimeoutGuard();
   try {
     const taskId = params.id;
     const body = await request.json();
@@ -168,6 +170,18 @@ export async function POST(
       db.prepare(`UPDATE conversations SET updated_at = ? WHERE id = ?`).run(new Date().toISOString(), conv.id);
     } catch (e) {
       console.warn('Failed to mirror activity into task room:', e);
+    }
+
+    // Immediate in_progress promotion: if an agent logs an activity and the task
+    // is still in assigned/dispatched state, escalate to in_progress.
+    if (agent_id) {
+      const currentTask = db.prepare('SELECT status FROM tasks WHERE id = ?').get(taskId) as { status: string } | undefined;
+      if (currentTask && (currentTask.status === 'assigned' || currentTask.status === 'dispatched')) {
+        const now = new Date().toISOString();
+        db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').run('in_progress', now, taskId);
+        const promoted = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId) as Task | undefined;
+        if (promoted) broadcast({ type: 'task_updated', payload: promoted });
+      }
     }
 
     // Broadcast to SSE clients

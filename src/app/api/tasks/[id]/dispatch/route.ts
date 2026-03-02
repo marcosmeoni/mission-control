@@ -7,6 +7,7 @@ import { broadcast } from '@/lib/events';
 import { getProjectsPath } from '@/lib/config';
 import { recallMemory, formatMemoryBlock } from '@/lib/memory';
 import { enqueueRoomMessage, startQueueWorker } from '@/lib/queue';
+import { startDispatchTimeoutGuard } from '@/lib/dispatch-timeout-guard';
 import type { Task, Agent, OpenClawSession } from '@/lib/types';
 
 interface RouteParams {
@@ -72,6 +73,7 @@ function isCodingTask(taskTitle: string, taskDescription?: string | null): boole
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     startQueueWorker();
+    startDispatchTimeoutGuard();
     const { id } = await params;
 
     // Get task with agent info

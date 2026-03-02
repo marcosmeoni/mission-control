@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { queryOne, queryAll, run } from '@/lib/db';
 import { getOpenClawClient } from '@/lib/openclaw/client';
+import { broadcast } from '@/lib/events';
+import { startDispatchTimeoutGuard } from '@/lib/dispatch-timeout-guard';
+import type { Task } from '@/lib/types';
 
 interface RouteParams { params: Promise<{ id: string }> }
 
@@ -45,6 +48,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  startDispatchTimeoutGuard();
   try {
     const { id: taskId } = await params;
     const body = await request.json();
@@ -79,6 +83,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
        WHERE m.id = ?`,
       [id]
     );
+
+    // Immediate in_progress promotion: if an agent sends the first message and
+    // the task is still in assigned/dispatched state, escalate to in_progress.
+    if (senderAgentId && (task.status === 'assigned' || task.status === 'dispatched')) {
+      run('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?', ['in_progress', now, taskId]);
+      const promoted = queryOne<Task>('SELECT * FROM tasks WHERE id = ?', [taskId]);
+      if (promoted) broadcast({ type: 'task_updated', payload: promoted });
+    }
+
+    // Broadcast the new room message so SSE clients refresh without waiting for poll
+    broadcast({ type: 'room_message', payload: { task_id: taskId } as unknown as Task });
 
     // Natural inter-agent ping: if message mentions @agentName, auto-ack from that agent
     // Otherwise fallback to assigned agent so user always gets a conversational response.

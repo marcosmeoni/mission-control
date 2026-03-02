@@ -141,7 +141,7 @@ export default function WorkspacePage() {
       } catch (error) {
         console.error('Failed to poll tasks:', error);
       }
-    }, 60000);
+    }, 30000);
 
     const connectionCheck = setInterval(async () => {
       try {
