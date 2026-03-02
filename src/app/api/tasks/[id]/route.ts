@@ -5,6 +5,35 @@ import { broadcast } from '@/lib/events';
 import { getMissionControlUrl } from '@/lib/config';
 import { UpdateTaskSchema } from '@/lib/validation';
 import type { Task, UpdateTaskRequest, Agent, TaskDeliverable } from '@/lib/types';
+
+function isCodingTaskText(text: string): boolean {
+  const t = (text || '').toLowerCase();
+  return [
+    'code', 'coding', 'repo', 'pull request', 'pr', 'terraform', 'helm', 'k8s',
+    'script', 'feature', 'fix', '.ts', '.tsx', '.js', '.py', '.tf', '.yaml', '.yml'
+  ].some(k => t.includes(k));
+}
+
+function hasCursorEvidence(taskId: string): boolean {
+  const activityRows = queryAll<{ message: string }>(
+    `SELECT message FROM task_activities WHERE task_id = ? ORDER BY datetime(created_at) DESC LIMIT 20`,
+    [taskId]
+  );
+  const roomRows = queryAll<{ content: string }>(
+    `SELECT content FROM messages WHERE conversation_id = (SELECT id FROM conversations WHERE task_id = ? LIMIT 1)
+     ORDER BY datetime(created_at) DESC LIMIT 20`,
+    [taskId]
+  );
+
+  const blob = [
+    ...activityRows.map(r => r.message || ''),
+    ...roomRows.map(r => r.content || ''),
+  ].join('\n').toLowerCase();
+
+  const hasCursor = blob.includes('cursor') || blob.includes('agent --version');
+  const hasAuto = blob.includes('mode auto') || blob.includes('model auto') || blob.includes('`auto`');
+  return hasCursor && hasAuto;
+}
 import { notifyTaskStatusChange } from '@/lib/notifier';
 
 // GET /api/tasks/[id] - Get a single task
@@ -78,6 +107,20 @@ export async function PATCH(
         { error: 'Agent/API calls cannot set done directly. Move task to review/approval and approve manually.' },
         { status: 403 }
       );
+    }
+
+    // Cursor enforcement for coding tasks: agent/API cannot complete to review/done without Cursor evidence
+    const codingTask = isCodingTaskText(`${existing.title || ''} ${existing.description || ''}`);
+    if (isBearerCall && codingTask && (validatedData.status === 'review' || validatedData.status === 'done')) {
+      if (!hasCursorEvidence(id)) {
+        return NextResponse.json(
+          {
+            error: 'CURSOR_EVIDENCE_REQUIRED',
+            message: 'Coding task requires Cursor evidence (agent --version + mode auto) before moving to review/done.'
+          },
+          { status: 403 }
+        );
+      }
     }
 
     if (validatedData.status === 'done' && prodLike && !validatedData.approval_note) {
