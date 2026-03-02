@@ -4,6 +4,7 @@ import { queryOne, queryAll, run } from '@/lib/db';
 import { getOpenClawClient } from '@/lib/openclaw/client';
 import { broadcast } from '@/lib/events';
 import { startDispatchTimeoutGuard } from '@/lib/dispatch-timeout-guard';
+import { startOpenClawRoomMirror } from '@/lib/openclaw-room-mirror';
 import type { Task } from '@/lib/types';
 
 interface RouteParams { params: Promise<{ id: string }> }
@@ -26,6 +27,7 @@ function ensureConversation(taskId: string) {
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
+  startOpenClawRoomMirror();
   try {
     const { id: taskId } = await params;
     const task = queryOne<{ id: string }>('SELECT id FROM tasks WHERE id = ?', [taskId]);

@@ -212,3 +212,20 @@ export function getDispatchTimeoutCheckMs(): number {
   const v = parseInt(process.env.MC_DISPATCH_TIMEOUT_CHECK_MS || '', 10);
   return isNaN(v) ? 60_000 : v;
 }
+
+/**
+ * Whether the OpenClaw-to-room live mirror is enabled.
+ * MC_ROOM_OPENCLAW_MIRROR=true to enable (default false).
+ */
+export function isOpenClawRoomMirrorEnabled(): boolean {
+  return process.env.MC_ROOM_OPENCLAW_MIRROR === 'true';
+}
+
+/**
+ * How often the room mirror polls OpenClaw sessions.
+ * MC_ROOM_OPENCLAW_MIRROR_POLL_MS – default 5 000 ms.
+ */
+export function getOpenClawRoomMirrorPollMs(): number {
+  const v = parseInt(process.env.MC_ROOM_OPENCLAW_MIRROR_POLL_MS || '', 10);
+  return isNaN(v) ? 5_000 : Math.max(1_000, v);
+}

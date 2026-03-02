@@ -202,6 +202,23 @@ const migrations: Migration[] = [
         console.log('[Migration 007] Added gateway_agent_id to agents');
       }
     }
+  },
+  {
+    id: '008',
+    name: 'add_openclaw_mirror_seen',
+    up: (db) => {
+      console.log('[Migration 008] Creating openclaw_mirror_seen table...');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS openclaw_mirror_seen (
+          session_key TEXT NOT NULL,
+          msg_hash    TEXT NOT NULL,
+          seen_at     TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (session_key, msg_hash)
+        );
+        CREATE INDEX IF NOT EXISTS idx_mirror_seen_session ON openclaw_mirror_seen(session_key);
+      `);
+      console.log('[Migration 008] openclaw_mirror_seen created');
+    }
   }
 ];
 
