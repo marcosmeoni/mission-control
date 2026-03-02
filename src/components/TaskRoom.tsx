@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useMissionControl } from '@/lib/store';
 import type { Agent } from '@/lib/types';
 
 interface TaskRoomProps {
@@ -23,6 +24,8 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
   const [content, setContent] = useState('');
   const [senderId, setSenderId] = useState('');
   const listRef = useRef<HTMLDivElement | null>(null);
+  const { roomTypingStates } = useMissionControl();
+  const typingState = roomTypingStates[taskId];
 
   const load = async () => {
     const res = await fetch(`/api/tasks/${taskId}/room`);
@@ -75,6 +78,12 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
             <div className="whitespace-pre-wrap">{m.content}</div>
           </div>
         ))}
+        {typingState?.isTyping && (
+          <div className="flex items-center gap-2 text-xs text-mc-text-secondary animate-pulse">
+            <span>⚙️</span>
+            <span>{typingState.agentName} está trabajando…</span>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">

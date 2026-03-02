@@ -52,6 +52,10 @@ interface MissionControlState {
   setAgentOpenClawSession: (agentId: string, session: OpenClawSession | null) => void;
   setOpenclawMessages: (messages: Message[]) => void;
   addOpenclawMessage: (message: Message) => void;
+
+  // V2 typing indicators: taskId -> { agentName, isTyping, updatedAt }
+  roomTypingStates: Record<string, { agentName: string; isTyping: boolean; updatedAt: number }>;
+  setRoomTyping: (taskId: string, agentName: string, isTyping: boolean) => void;
 }
 
 export const useMissionControl = create<MissionControlState>((set) => ({
@@ -64,6 +68,7 @@ export const useMissionControl = create<MissionControlState>((set) => ({
   messages: [],
   agentOpenClawSessions: {},
   openclawMessages: [],
+  roomTypingStates: {},
   selectedAgent: null,
   selectedTask: null,
   isOnline: false,
@@ -154,4 +159,13 @@ export const useMissionControl = create<MissionControlState>((set) => ({
   setOpenclawMessages: (messages) => set({ openclawMessages: messages }),
   addOpenclawMessage: (message) =>
     set((state) => ({ openclawMessages: [...state.openclawMessages, message] })),
+
+  // V2 typing indicators (initial state defined above, setter below)
+  setRoomTyping: (taskId, agentName, isTyping) =>
+    set((state) => ({
+      roomTypingStates: {
+        ...state.roomTypingStates,
+        [taskId]: { agentName, isTyping, updatedAt: Date.now() },
+      },
+    })),
 }));

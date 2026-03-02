@@ -310,7 +310,8 @@ export type SSEEventType =
   | 'deliverable_added'
   | 'agent_spawned'
   | 'agent_completed'
-  | 'room_message';
+  | 'room_message'
+  | 'room_typing';
 
 export interface SSEEvent {
   type: SSEEventType;

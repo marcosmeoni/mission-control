@@ -21,6 +21,7 @@ export function useSSE() {
     setIsOnline,
     selectedTask,
     setSelectedTask,
+    setRoomTyping,
   } = useMissionControl();
 
   // Update ref when selectedTask changes (outside the SSE effect)
@@ -104,6 +105,18 @@ export function useSSE() {
               debug.sse('Agent completed', sseEvent.payload);
               break;
 
+            case 'room_typing': {
+              const tp = sseEvent.payload as unknown as {
+                task_id: string;
+                agent_id: string;
+                agent_name: string;
+                is_typing: boolean;
+              };
+              debug.sse('Room typing signal', tp);
+              setRoomTyping(tp.task_id, tp.agent_name, tp.is_typing);
+              break;
+            }
+
             default:
               debug.sse('Unknown event type', sseEvent);
           }
@@ -145,5 +158,5 @@ export function useSSE() {
     };
   // selectedTask removed from deps to prevent re-connection loop
   // We use selectedTaskIdRef to check the current selected task ID without triggering re-renders
-  }, [addTask, updateTask, setIsOnline, setSelectedTask]);
+  }, [addTask, updateTask, setIsOnline, setSelectedTask, setRoomTyping]);
 }

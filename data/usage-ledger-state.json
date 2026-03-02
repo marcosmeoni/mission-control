@@ -1,14 +1,14 @@
 {
   "lastBySession": {
     "agent:main:main": {
-      "input": 3,
-      "output": 76,
-      "total": 16868
+      "input": 4,
+      "output": 248,
+      "total": 17191
     },
     "agent:main:whatsapp:direct:+5492364545076": {
-      "input": 2057,
-      "output": 75,
-      "total": 177002
+      "input": 840,
+      "output": 314,
+      "total": 182042
     },
     "agent:main:mission-control-de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3-coord-tutenlabs-37828a6b": {
       "input": 4,
@@ -81,25 +81,35 @@
       "total": 34498
     },
     "agent:main:mission-control-de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3-spec-platform-engineering-a3e53cd9": {
-      "input": 44,
-      "output": 18726,
-      "total": 41089
+      "input": 3,
+      "output": 394,
+      "total": 41806
+    },
+    "agent:main:subagent:fe923eca-42a9-4bcb-97a8-a82f78c1bdea": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "agent:main:subagent:b3b352d9-17e7-48d0-869d-0feac93201ae": {
+      "input": 50,
+      "output": 9841,
+      "total": 48311
     }
   },
   "cumulative": {
-    "inputTokens": 231124,
-    "outputTokens": 134060,
-    "totalTokens": 910638,
-    "sessions": 3,
-    "estCostUsd": 2.437815
+    "inputTokens": 231175,
+    "outputTokens": 144073,
+    "totalTokens": 959272,
+    "sessions": 4,
+    "estCostUsd": 2.588163
   },
   "byModel": {
     "anthropic/claude-sonnet-4-6": {
-      "inputTokens": 311,
-      "outputTokens": 128968,
-      "totalTokens": 670976,
+      "inputTokens": 362,
+      "outputTokens": 138981,
+      "totalTokens": 719610,
       "sessions": 0,
-      "estCostUsd": 1.9354529999999994
+      "estCostUsd": 2.0858009999999996
     },
     "openai-codex/gpt-5.3-codex": {
       "inputTokens": 230813,
