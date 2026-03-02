@@ -49,6 +49,17 @@ function loadFirstExisting(paths: string[]): string | null {
   return null;
 }
 
+function extractBridgeWorkspaceMemory(fullText: string): string {
+  const start = '<!-- MC_MEMORY_BRIDGE_START -->';
+  const end = '<!-- MC_MEMORY_BRIDGE_END -->';
+  const i = fullText.indexOf(start);
+  const j = fullText.indexOf(end);
+  if (i >= 0 && j > i) {
+    return fullText.slice(i + start.length, j).trim();
+  }
+  return fullText;
+}
+
 function getAgentMemoryPath(agentMemoryKey: string): string {
   return path.join(AGENT_MEMORY_DIR, agentMemoryKey, 'MEMORY.md');
 }
@@ -120,8 +131,10 @@ export async function recallMemory(
 ): Promise<RecalledMemory> {
   const taskText = `${taskTitle} ${taskDescription || ''}`;
 
+  const workspaceRaw = loadFirstExisting(WORKSPACE_MEMORY_PATHS);
+
   return {
-    workspace: loadFirstExisting(WORKSPACE_MEMORY_PATHS) ?? undefined,
+    workspace: workspaceRaw ? extractBridgeWorkspaceMemory(workspaceRaw) : undefined,
     agent:
       loadFirstExisting([
         getAgentMemoryPath(agentMemoryKey),
