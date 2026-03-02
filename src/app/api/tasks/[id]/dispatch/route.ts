@@ -268,7 +268,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const forceCursorForCode = process.env.MC_FORCE_CURSOR_FOR_CODE !== 'false';
     const useCursorForThisTask = forceCursorForCode && isCodingTask(task.title, task.description);
     const executionModeBlock = useCursorForThisTask
-      ? `\n**EXECUTION MODE (REQUIRED):** CURSOR_CLI\nThis is a coding task. Execute implementation using Cursor CLI workflow.\nWhen reporting progress, mention command-style prefix: \`cursor: <task>\`.\n\n**CURSOR PREFLIGHT (MANDATORY):**\n1) Run \`agent --version\`\n2) Verify auth/session before coding.\n3) If login is required, STOP and report: \`CURSOR_AUTH_REQUIRED\` with next-step instructions (do not continue coding until auth is resolved).`
+      ? `\n**EXECUTION MODE (REQUIRED):** CURSOR_CLI\nThis is a coding task. Execute implementation using Cursor CLI workflow.\nWhen reporting progress, mention command-style prefix: \`cursor: <task>\`.\n\n**MODEL POLICY (REQUIRED):**\nUse Cursor model mode **\`auto\`** by default (cost-effective automatic routing).\n\n**CURSOR PREFLIGHT (MANDATORY):**\n1) Run \`agent --version\`\n2) Verify auth/session before coding.\n3) If login is required, STOP and report: \`CURSOR_AUTH_REQUIRED\` with next-step instructions (do not continue coding until auth is resolved).`
       : '';
 
     const taskMessage = `${priorityEmoji} **NEW TASK ASSIGNED**
