@@ -45,14 +45,41 @@ function loadRouterRules(): RouterRule[] {
   return DEFAULT_ROUTER_RULES;
 }
 
-function pickSpecialist(taskTitle: string, taskDescription?: string | null): string | null {
+/**
+ * Returns up to maxCount matching specialist keys (ordered by first match in rules list).
+ * Backwards compatible: callers that only need the first result still work.
+ */
+function pickSpecialists(
+  taskTitle: string,
+  taskDescription?: string | null,
+  maxCount = 1
+): string[] {
   const text = `${taskTitle} ${taskDescription || ''}`.toLowerCase();
   const rules = loadRouterRules();
+  const matched: string[] = [];
+  const seen = new Set<string>();
 
   for (const r of rules) {
-    if (r.patterns.some((p) => text.includes(String(p).toLowerCase()))) return r.key;
+    if (seen.has(r.key)) continue;
+    if (r.patterns.some((p) => text.includes(String(p).toLowerCase()))) {
+      matched.push(r.key);
+      seen.add(r.key);
+      if (matched.length >= maxCount) break;
+    }
   }
-  return null;
+  return matched;
+}
+
+/** Legacy single-pick — keeps existing callers working */
+function pickSpecialist(taskTitle: string, taskDescription?: string | null): string | null {
+  const hits = pickSpecialists(taskTitle, taskDescription, 1);
+  return hits[0] ?? null;
+}
+
+/** Read env guardrail: max specialists to fan-out in one coordinator dispatch */
+function getMaxSpecialists(): number {
+  const v = parseInt(process.env.MC_COORD_MAX_SPECIALISTS || '', 10);
+  return isNaN(v) || v < 1 ? 3 : Math.min(v, 10);
 }
 
 function isCodingTask(taskTitle: string, taskDescription?: string | null): boolean {
@@ -106,44 +133,198 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Assigned agent not found' }, { status: 404 });
     }
 
-    // Coordinator auto-planning + specialist auto-routing
+    // -----------------------------------------------------------------------
+    // Coordinator auto-routing: single OR multi-specialist fan-out
+    // -----------------------------------------------------------------------
     const isCoordinator = (agent.gateway_agent_id || agent.name || '').startsWith('coord-');
     if (isCoordinator) {
-      const specialistKey = pickSpecialist(task.title, task.description);
-      if (specialistKey) {
-        const specialist = queryOne<Agent>(
-          `SELECT * FROM agents
-           WHERE workspace_id = ?
-             AND gateway_agent_id = ?
-           LIMIT 1`,
-          [task.workspace_id, specialistKey]
-        );
+      const maxSpec = getMaxSpecialists();
+      const specialistKeys = pickSpecialists(task.title, task.description, maxSpec);
 
-        if (specialist) {
-          // Reassign task to specialist inside the same workspace
+      if (specialistKeys.length > 0) {
+        // Resolve specialist agents from DB
+        const specialists: Agent[] = [];
+        for (const key of specialistKeys) {
+          const sp = queryOne<Agent>(
+            `SELECT * FROM agents WHERE workspace_id = ? AND gateway_agent_id = ? LIMIT 1`,
+            [task.workspace_id, key]
+          );
+          if (sp) specialists.push(sp);
+        }
+
+        // Anti-loop guard: prevent re-dispatching to same agent already assigned
+        const filteredSpecialists = specialists.filter(sp => sp.id !== task.assigned_agent_id);
+
+        if (filteredSpecialists.length === 1) {
+          // ---- Backwards-compatible single specialist path ----
+          const specialist = filteredSpecialists[0];
           run(
             'UPDATE tasks SET assigned_agent_id = ?, status = ?, updated_at = ? WHERE id = ?',
             [specialist.id, 'assigned', new Date().toISOString(), task.id]
           );
-
           run(
-            `INSERT INTO events (id, type, agent_id, task_id, message, created_at)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-              uuidv4(),
-              'task_assigned',
-              specialist.id,
-              task.id,
-              `Auto-routing: ${agent.name} delegated to ${specialist.name}`,
-              new Date().toISOString(),
-            ]
+            `INSERT INTO events (id, type, agent_id, task_id, message, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+            [uuidv4(), 'task_assigned', specialist.id, task.id,
+             `Auto-routing: ${agent.name} delegated to ${specialist.name}`, new Date().toISOString()]
+          );
+          await enqueueRoomMessage(task.id, null, `🤝 Auto-routing: ${agent.name} delegó la tarea a ${specialist.name}`);
+          agent = specialist;
+
+        } else if (filteredSpecialists.length > 1) {
+          // ---- Multi-specialist fan-out path ----
+          const coordAgent = agent; // keep ref to coordinator
+          const now = new Date().toISOString();
+
+          // Connect client once
+          const client = getOpenClawClient();
+          if (!client.isConnected()) {
+            try { await client.connect(); } catch (err) {
+              console.error('[multispec] Failed to connect to OpenClaw Gateway:', err);
+              return NextResponse.json({ error: 'Failed to connect to OpenClaw Gateway' }, { status: 503 });
+            }
+          }
+
+          // Room announcement
+          const specNames = filteredSpecialists.map(s => s.name).join(', ');
+          await enqueueRoomMessage(
+            task.id, null,
+            `🎯 Multi-especialista: ${coordAgent.name} detectó ${filteredSpecialists.length} especialistas relevantes. Fan-out a: ${specNames}`
           );
 
-          await enqueueRoomMessage(task.id, null, `🤝 Auto-routing: ${agent.name} delegated task to ${specialist.name}`);
+          // Log coordinator activity
+          run(
+            `INSERT INTO task_activities (id, task_id, agent_id, activity_type, message, metadata, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [uuidv4(), task.id, coordAgent.id, 'status_changed',
+             `Coordinator fan-out to ${filteredSpecialists.length} specialists: ${specNames}`,
+             JSON.stringify({ specialists: filteredSpecialists.map(s => ({ id: s.id, name: s.name })), multispec: true }),
+             now]
+          );
 
-          // Refresh selected agent for the dispatch flow below
-          agent = specialist;
+          const localPort = process.env.PORT || '80';
+          const missionControlUrl = localPort === '80' ? 'http://127.0.0.1' : `http://127.0.0.1:${localPort}`;
+          const missionControlApiToken = process.env.MC_API_TOKEN || '';
+          const projectDir = task.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const TIMEOUT_MS = parseInt(process.env.MC_COORD_SPECIALIST_TIMEOUT_MS || '', 10) || 300_000; // 5 min default
+
+          // Fan-out: dispatch to each specialist in parallel
+          const fanOutResults = await Promise.allSettled(
+            filteredSpecialists.map(async (specialist) => {
+              const sessionSlug = `${task.workspace_id}-${specialist.name}-${specialist.id.slice(0, 8)}`
+                .toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+              const openclawSessionId = `mission-control-${sessionSlug}`;
+
+              // Upsert session
+              let spSession = queryOne<OpenClawSession>(
+                'SELECT * FROM openclaw_sessions WHERE agent_id = ? AND status = ?',
+                [specialist.id, 'active']
+              );
+              if (!spSession) {
+                const sessionId = uuidv4();
+                run(
+                  `INSERT INTO openclaw_sessions (id, agent_id, openclaw_session_id, channel, status, task_id, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                  [sessionId, specialist.id, openclawSessionId, 'mission-control', 'active', task.id, now, now]
+                );
+                spSession = queryOne<OpenClawSession>('SELECT * FROM openclaw_sessions WHERE id = ?', [sessionId]);
+              } else {
+                run('UPDATE openclaw_sessions SET task_id = ?, updated_at = ? WHERE id = ?', [task.id, now, spSession.id]);
+              }
+
+              if (!spSession) throw new Error(`Failed to upsert session for ${specialist.name}`);
+
+              // Build specialist task message
+              const spProjectDir = specialist.gateway_agent_id
+                ? `/root/.openclaw/workspace/agents/${specialist.gateway_agent_id}/projects/${projectDir}`
+                : `/root/.openclaw/workspace/projects/${projectDir}`;
+
+              const spMsg = `🎯 **MULTI-SPECIALIST TASK — YOUR SLICE**
+
+**Coordinator:** ${coordAgent.name}
+**Task:** ${task.title}
+${task.description ? `**Description:** ${task.description}\n` : ''}
+**Your domain:** ${specialist.name} (${specialist.gateway_agent_id || specialist.role})
+**Priority:** ${task.priority.toUpperCase()}
+**Task ID:** ${task.id}
+
+You are ONE of ${filteredSpecialists.length} specialists working on this task in parallel.
+Focus on your domain expertise. Keep your response scoped to what you do best.
+The coordinator will synthesize all specialist outputs.
+
+**OUTPUT DIRECTORY:** ${spProjectDir}
+
+**AUTH FOR MISSION CONTROL API:**
+Use header: Authorization: Bearer ${missionControlApiToken}
+
+After completing your slice:
+1. POST ${missionControlUrl}/api/tasks/${task.id}/activities
+   Body: {"activity_type": "completed", "message": "Specialist ${specialist.name}: [summary]"}
+2. POST ${missionControlUrl}/api/tasks/${task.id}/deliverables
+   Body: {"deliverable_type": "file", "title": "[your deliverable]", "path": "${spProjectDir}/..."}
+
+Reply with: \`SPECIALIST_COMPLETE: [your domain] - [brief summary]\``;
+
+              const memory = await recallMemory(specialist.gateway_agent_id || specialist.id, task.title, task.description);
+              const memBlock = formatMemoryBlock(memory);
+
+              // Dispatch with timeout
+              const sendPromise = client.call('chat.send', {
+                sessionKey: `agent:main:${spSession.openclaw_session_id}`,
+                message: spMsg + memBlock,
+                idempotencyKey: `multispec-${task.id}-${specialist.id}-${Date.now()}`,
+              });
+              const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+              );
+              await Promise.race([sendPromise, timeoutPromise]);
+
+              // Log handoff activity in room
+              await enqueueRoomMessage(
+                task.id, specialist.id,
+                `📋 Handoff a ${specialist.name}: recibió slice de tarea. Ejecutando en paralelo.`,
+                'task_update'
+              );
+
+              run(
+                `INSERT INTO task_activities (id, task_id, agent_id, activity_type, message, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [uuidv4(), task.id, specialist.id, 'spawned',
+                 `Specialist ${specialist.name} dispatched for multi-spec fan-out`, now]
+              );
+
+              return { specialist, sessionId: spSession.openclaw_session_id };
+            })
+          );
+
+          // Summary of fan-out results
+          const succeeded = fanOutResults.filter(r => r.status === 'fulfilled').length;
+          const failed = fanOutResults.filter(r => r.status === 'rejected');
+          if (failed.length > 0) {
+            console.warn('[multispec] Some specialists failed to receive task:', failed.map(f => (f as PromiseRejectedResult).reason));
+          }
+
+          // Update task status to in_progress
+          run('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?', ['in_progress', now, task.id]);
+          const updatedTask = queryOne<Task>('SELECT * FROM tasks WHERE id = ?', [task.id]);
+          if (updatedTask) broadcast({ type: 'task_updated', payload: updatedTask });
+
+          // Post coordinator synthesis placeholder to room
+          await enqueueRoomMessage(
+            task.id, coordAgent.id,
+            `✅ Fan-out completado: ${succeeded}/${filteredSpecialists.length} especialistas notificados. El coordinador sintetizará los resultados cuando completen.`,
+            'task_update'
+          );
+
+          return NextResponse.json({
+            success: true,
+            task_id: task.id,
+            multispec: true,
+            specialists_dispatched: succeeded,
+            specialists_total: filteredSpecialists.length,
+            message: `Multi-specialist fan-out: ${succeeded}/${filteredSpecialists.length} specialists dispatched`,
+          });
         }
+        // else: no specialists found in DB → fall through to normal dispatch
       }
     }
 

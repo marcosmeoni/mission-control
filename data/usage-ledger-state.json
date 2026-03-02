@@ -2,13 +2,13 @@
   "lastBySession": {
     "agent:main:main": {
       "input": 4,
-      "output": 248,
-      "total": 17191
+      "output": 254,
+      "total": 17197
     },
     "agent:main:whatsapp:direct:+5492364545076": {
-      "input": 840,
-      "output": 314,
-      "total": 182042
+      "input": 130272,
+      "output": 528,
+      "total": 181164
     },
     "agent:main:mission-control-de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3-coord-tutenlabs-37828a6b": {
       "input": 4,
@@ -86,37 +86,42 @@
       "total": 41806
     },
     "agent:main:subagent:fe923eca-42a9-4bcb-97a8-a82f78c1bdea": {
-      "input": 0,
-      "output": 0,
-      "total": 0
+      "input": 66,
+      "output": 15450,
+      "total": 43726
     },
     "agent:main:subagent:b3b352d9-17e7-48d0-869d-0feac93201ae": {
       "input": 50,
       "output": 9841,
       "total": 48311
+    },
+    "agent:main:mission-control-de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3-spec-python-8a36a270": {
+      "input": 7,
+      "output": 1638,
+      "total": 20451
     }
   },
   "cumulative": {
-    "inputTokens": 231175,
-    "outputTokens": 144073,
-    "totalTokens": 959272,
-    "sessions": 4,
-    "estCostUsd": 2.588163
+    "inputTokens": 358402,
+    "outputTokens": 161308,
+    "totalTokens": 1023509,
+    "sessions": 3,
+    "estCostUsd": 3.100228
   },
   "byModel": {
     "anthropic/claude-sonnet-4-6": {
-      "inputTokens": 362,
-      "outputTokens": 138981,
-      "totalTokens": 719610,
+      "inputTokens": 435,
+      "outputTokens": 156075,
+      "totalTokens": 783793,
       "sessions": 0,
-      "estCostUsd": 2.0858009999999996
+      "estCostUsd": 2.3424299999999993
     },
     "openai-codex/gpt-5.3-codex": {
-      "inputTokens": 230813,
-      "outputTokens": 5092,
-      "totalTokens": 239662,
+      "inputTokens": 357967,
+      "outputTokens": 5233,
+      "totalTokens": 239716,
       "sessions": 0,
-      "estCostUsd": 0.502362
+      "estCostUsd": 0.757798
     }
   },
   "byWorkspace": {
@@ -124,11 +129,11 @@
       "workspaceId": "de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3",
       "workspaceName": "Tuten",
       "workspaceSlug": "tuten",
-      "inputTokens": 168,
-      "outputTokens": 83428,
-      "totalTokens": 421511,
+      "inputTokens": 175,
+      "outputTokens": 85066,
+      "totalTokens": 441962,
       "sessions": 0,
-      "estCostUsd": 1.2519239999999998
+      "estCostUsd": 1.2765149999999998
     },
     "default": {
       "workspaceId": "default",
@@ -218,6 +223,17 @@
       "totalTokens": 41089,
       "sessions": 0,
       "estCostUsd": 0.281022
+    },
+    "8a36a270-b406-4eda-837f-e554260f6413::anthropic/claude-sonnet-4-6": {
+      "agentId": "8a36a270-b406-4eda-837f-e554260f6413",
+      "agentName": "spec-python",
+      "workspaceId": "de6758b7-8a9f-4201-a0c5-a2d79ffcbbe3",
+      "model": "anthropic/claude-sonnet-4-6",
+      "inputTokens": 7,
+      "outputTokens": 1638,
+      "totalTokens": 20451,
+      "sessions": 0,
+      "estCostUsd": 0.024591
     }
   }
 }
