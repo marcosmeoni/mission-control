@@ -126,8 +126,8 @@ async function checkPostgREST(memoryEnv: Record<string, string>): Promise<Check>
     const res = await fetch(`${url}/memories?limit=1`, { signal: ctrl.signal });
     clearTimeout(timeout);
 
-    if (res.ok || res.status === 406) {
-      // 406 = empty result with Accept headers mismatch, still means service is up
+    if (res.status < 500) {
+      // Any non-5xx response means service is reachable (auth/accept issues are not availability failures)
       return { name: 'PostgREST', status: 'green', message: `Reachable (HTTP ${res.status})` };
     }
     return { name: 'PostgREST', status: 'yellow', message: `HTTP ${res.status}` };
