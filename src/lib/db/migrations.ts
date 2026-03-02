@@ -219,6 +219,66 @@ const migrations: Migration[] = [
       `);
       console.log('[Migration 008] openclaw_mirror_seen created');
     }
+  },
+  {
+    id: '009',
+    name: 'expand_task_status_constraint_with_blocked_approval',
+    up: (db) => {
+      console.log('[Migration 009] Expanding tasks.status CHECK constraint...');
+
+      const schemaRow = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'").get() as { sql?: string } | undefined;
+      const sql = schemaRow?.sql || '';
+      if (sql.includes("'blocked'") && sql.includes("'approval'")) {
+        console.log('[Migration 009] tasks.status already supports blocked/approval');
+        return;
+      }
+
+      db.exec('PRAGMA foreign_keys=OFF;');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS tasks_new (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          status TEXT DEFAULT 'inbox' CHECK (status IN ('pending_dispatch', 'planning', 'inbox', 'assigned', 'in_progress', 'testing', 'review', 'approval', 'blocked', 'done')),
+          priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+          assigned_agent_id TEXT REFERENCES agents(id),
+          created_by_agent_id TEXT REFERENCES agents(id),
+          workspace_id TEXT DEFAULT 'default' REFERENCES workspaces(id),
+          business_id TEXT DEFAULT 'default',
+          due_date TEXT,
+          planning_session_key TEXT,
+          planning_messages TEXT,
+          planning_complete INTEGER DEFAULT 0,
+          planning_spec TEXT,
+          planning_agents TEXT,
+          planning_dispatch_error TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        INSERT INTO tasks_new (
+          id,title,description,status,priority,assigned_agent_id,created_by_agent_id,workspace_id,business_id,due_date,
+          planning_session_key,planning_messages,planning_complete,planning_spec,planning_agents,planning_dispatch_error,created_at,updated_at
+        )
+        SELECT 
+          id,title,description,
+          CASE WHEN status='blocked' THEN 'blocked' WHEN status='approval' THEN 'approval' ELSE status END,
+          priority,assigned_agent_id,created_by_agent_id,workspace_id,business_id,due_date,
+          planning_session_key,planning_messages,planning_complete,planning_spec,planning_agents,planning_dispatch_error,created_at,updated_at
+        FROM tasks;
+
+        DROP TABLE tasks;
+        ALTER TABLE tasks_new RENAME TO tasks;
+
+        CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+        CREATE INDEX IF NOT EXISTS idx_tasks_assigned ON tasks(assigned_agent_id);
+        CREATE INDEX IF NOT EXISTS idx_tasks_workspace ON tasks(workspace_id);
+      `);
+
+      db.exec('PRAGMA foreign_keys=ON;');
+      console.log('[Migration 009] tasks.status constraint updated');
+    }
   }
 ];
 
