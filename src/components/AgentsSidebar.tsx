@@ -26,9 +26,10 @@ interface AgentsSidebarProps {
   workspaceId?: string;
   mobileMode?: boolean;
   onOpenTaskFromRoom?: () => void;
+  desktopWidth?: number;
 }
 
-export function AgentsSidebar({ workspaceId, mobileMode, onOpenTaskFromRoom }: AgentsSidebarProps) {
+export function AgentsSidebar({ workspaceId, mobileMode, onOpenTaskFromRoom, desktopWidth }: AgentsSidebarProps) {
   const { agents, tasks, selectedAgent, setSelectedAgent, setSelectedTask, agentOpenClawSessions, setAgentOpenClawSession } = useMissionControl();
   const [filter, setFilter] = useState<FilterTab>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -221,8 +222,9 @@ export function AgentsSidebar({ workspaceId, mobileMode, onOpenTaskFromRoom }: A
       className={`bg-mc-bg-secondary border-mc-border flex flex-col transition-all duration-300 ease-in-out ${
         mobileMode
           ? 'w-full h-full border-none'
-          : `border-r ${isMinimized ? 'w-12' : 'w-64'}`
+          : `border-r ${isMinimized ? 'w-12' : ''}`
       }`}
+      style={!mobileMode && !isMinimized && desktopWidth ? { width: `${desktopWidth}px` } : undefined}
     >
       {/* Header */}
       <div className="p-3 border-b border-mc-border flex-shrink-0">

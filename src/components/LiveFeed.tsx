@@ -10,9 +10,10 @@ type FeedFilter = 'all' | 'tasks' | 'agents';
 
 interface LiveFeedProps {
   mobileMode?: boolean;
+  desktopWidth?: number;
 }
 
-export function LiveFeed({ mobileMode }: LiveFeedProps) {
+export function LiveFeed({ mobileMode, desktopWidth }: LiveFeedProps) {
   const { events } = useMissionControl();
   const [filter, setFilter] = useState<FeedFilter>('all');
   const [isMinimized, setIsMinimized] = useState(false);
@@ -37,8 +38,9 @@ export function LiveFeed({ mobileMode }: LiveFeedProps) {
       className={`bg-mc-bg-secondary border-mc-border flex flex-col transition-all duration-300 ease-in-out ${
         mobileMode
           ? 'w-full h-full border-none'
-          : `border-l ${isMinimized ? 'w-12' : 'w-80'}`
+          : `border-l ${isMinimized ? 'w-12' : ''}`
       }`}
+      style={!mobileMode && !isMinimized && desktopWidth ? { width: `${desktopWidth}px` } : undefined}
     >
       {/* Header */}
       <div className="p-3 border-b border-mc-border flex-shrink-0">

@@ -22,6 +22,8 @@ export default function WorkspacePage() {
   const slug = params.slug as string;
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [mobileView, setMobileView] = useState<MobileView>('board');
+  const [leftWidth, setLeftWidth] = useState(256);
+  const [rightWidth, setRightWidth] = useState(320);
 
   const {
     setAgents,
@@ -194,15 +196,49 @@ export default function WorkspacePage() {
     );
   }
 
+  const startResize = (side: 'left' | 'right') => (e: any) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startLeft = leftWidth;
+    const startRight = rightWidth;
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      if (side === 'left') {
+        setLeftWidth(Math.max(180, Math.min(420, startLeft + dx)));
+      } else {
+        setRightWidth(Math.max(220, Math.min(520, startRight - dx)));
+      }
+    };
+
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
   return (
     <div className="h-screen flex flex-col bg-mc-bg overflow-hidden">
       <Header workspace={workspace} />
 
       {isDesktop ? (
         <div className="flex-1 flex overflow-hidden">
-          <AgentsSidebar workspaceId={workspace.id} />
+          <AgentsSidebar workspaceId={workspace.id} desktopWidth={leftWidth} />
+          <div
+            className="w-1 cursor-col-resize bg-mc-border/60 hover:bg-mc-accent/60 transition-colors"
+            onMouseDown={startResize('left')}
+            title="Resize left panel"
+          />
           <MissionQueue workspaceId={workspace.id} />
-          <LiveFeed />
+          <div
+            className="w-1 cursor-col-resize bg-mc-border/60 hover:bg-mc-accent/60 transition-colors"
+            onMouseDown={startResize('right')}
+            title="Resize right panel"
+          />
+          <LiveFeed desktopWidth={rightWidth} />
         </div>
       ) : (
         <>

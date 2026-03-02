@@ -107,10 +107,18 @@ interface MessageGroup {
   messages: RoomMessage[];
 }
 
+function isSystemMessage(m: RoomMessage): boolean {
+  const meta = parseMeta(m) as Record<string, unknown>;
+  const source = String(meta.source || '').toLowerCase();
+  if (m.message_type === 'task_update' || m.message_type === 'system') return true;
+  if (source.includes('openclaw') || source.includes('mirror')) return true;
+  return false;
+}
+
 function groupMessages(messages: RoomMessage[]): MessageGroup[] {
   const groups: MessageGroup[] = [];
   for (const m of messages) {
-    const isHuman = !m.sender_agent_id;
+    const isHuman = !m.sender_agent_id && !isSystemMessage(m);
     const last = groups[groups.length - 1];
     const sameSender = last && last.senderId === (m.sender_agent_id || null) &&
       // Don't group system/status events - always standalone
@@ -118,10 +126,11 @@ function groupMessages(messages: RoomMessage[]): MessageGroup[] {
     if (sameSender) {
       last.messages.push(m);
     } else {
+      const sys = isSystemMessage(m);
       groups.push({
         senderId: m.sender_agent_id || null,
-        senderName: m.sender_name || (isHuman ? 'Tú' : 'Agent'),
-        senderAvatar: m.sender_avatar || (isHuman ? '👤' : '🤖'),
+        senderName: m.sender_name || (isHuman ? 'Tú' : (sys ? 'System' : 'Agent')),
+        senderAvatar: m.sender_avatar || (isHuman ? '👤' : (sys ? '⚙️' : '🤖')),
         isHuman,
         messages: [m],
       });
