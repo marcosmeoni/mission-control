@@ -126,6 +126,18 @@ export async function PATCH(
       updates.push('status = ?');
       values.push(validatedData.status);
 
+      // Keep agent presence accurate in sidebar
+      if (existing.assigned_agent_id) {
+        const terminalLike = ['review', 'approval', 'done', 'blocked'];
+        const nextAgentStatus = terminalLike.includes(validatedData.status) ? 'standby' : null;
+        if (nextAgentStatus) {
+          run(
+            'UPDATE agents SET status = ?, updated_at = ? WHERE id = ?',
+            [nextAgentStatus, now, existing.assigned_agent_id]
+          );
+        }
+      }
+
       // Auto-dispatch when moving to assigned
       if (validatedData.status === 'assigned' && existing.assigned_agent_id) {
         shouldDispatch = true;
