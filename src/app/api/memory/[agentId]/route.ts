@@ -13,10 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
-import path from 'path';
-import { writeAgentMemory } from '@/lib/memory';
-
-const MEMORY_BASE = path.join(process.cwd(), 'data', 'memory');
+import { writeAgentMemory, getAgentMemoryReadPath } from '@/lib/memory';
 
 const VALID_CATEGORIES = new Set(['decision', 'preference', 'restriction', 'project', 'note']);
 
@@ -68,7 +65,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   const { agentId } = await params;
-  const filePath = path.join(MEMORY_BASE, 'agents', `${agentId}.md`);
+  const filePath = getAgentMemoryReadPath(agentId);
 
   try {
     if (!fs.existsSync(filePath)) {
