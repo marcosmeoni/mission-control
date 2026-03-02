@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
           in_progress: 0,
           testing: 0,
           review: 0,
+          blocked: 0,
           done: 0,
           total: 0
         };

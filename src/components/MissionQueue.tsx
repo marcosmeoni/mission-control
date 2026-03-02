@@ -19,6 +19,7 @@ const COLUMNS: { id: TaskStatus; label: string; color: string }[] = [
   { id: 'in_progress', label: 'IN PROGRESS', color: 'border-t-mc-accent' },
   { id: 'testing', label: 'TESTING', color: 'border-t-mc-accent-cyan' },
   { id: 'review', label: 'APPROVAL', color: 'border-t-mc-accent-purple' },
+  { id: 'blocked', label: 'BLOCKED', color: 'border-t-mc-accent-red' },
   { id: 'done', label: 'DONE', color: 'border-t-mc-accent-green' },
 ];
 
