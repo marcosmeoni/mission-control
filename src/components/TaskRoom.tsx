@@ -138,6 +138,7 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
   const [showMentions, setShowMentions] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const stickToBottomRef = useRef(true);
   const { roomTypingStates } = useMissionControl();
   const typingState = roomTypingStates[taskId];
 
@@ -158,11 +159,22 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    if (stickToBottomRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages]);
+
+  const onListScroll = () => {
+    const el = listRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 80;
+  };
 
   const send = async () => {
     if (!content.trim()) return;
+    // keep UX like chat apps: when I send, follow latest messages
+    stickToBottomRef.current = true;
     const res = await fetch(`/api/tasks/${taskId}/room`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -239,6 +251,7 @@ export function TaskRoom({ taskId, agents, defaultAgentId }: TaskRoomProps) {
       {/* Message timeline */}
       <div
         ref={listRef}
+        onScroll={onListScroll}
         className="max-h-[55vh] sm:max-h-[60vh] overflow-y-auto flex flex-col gap-3 p-3 rounded-lg border border-mc-border bg-mc-bg"
       >
         {groups.length === 0 && (
