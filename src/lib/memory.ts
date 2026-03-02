@@ -78,7 +78,7 @@ async function recallSemanticMemory(query: string): Promise<string | undefined> 
   if (!fs.existsSync(scriptPath)) return undefined;
 
   try {
-    const { stdout } = await execFileAsync('node', [scriptPath, '--query', query, '--limit', '3', '--json'], {
+    const { stdout } = await execFileAsync('node', [scriptPath, '--query', query, '--limit', '3', '--threshold', '0.25', '--json'], {
       cwd: process.cwd(),
       timeout: 12000,
       maxBuffer: 1024 * 1024,
