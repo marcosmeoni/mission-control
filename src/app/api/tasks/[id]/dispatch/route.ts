@@ -244,6 +244,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       session.openclaw_session_id = newSessionId;
     }
 
+    // Bind latest dispatched task to this active session so room mirror can map session -> task
+    run(
+      'UPDATE openclaw_sessions SET task_id = ?, updated_at = ? WHERE id = ?',
+      [task.id, now, session.id]
+    );
+
     // Build task message for agent
     const priorityEmoji = {
       low: '🔵',
