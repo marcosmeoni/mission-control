@@ -23,6 +23,12 @@ const LEGACY_PROJECT_MEMORY_DIR = path.join(LEGACY_MEMORY_BASE, 'projects');
 
 const execFileAsync = promisify(execFile);
 const SEMANTIC_RECALL_ENABLED = process.env.MC_MEMORY_SEMANTIC_RECALL === 'true';
+const SEMANTIC_RECALL_LIMIT = Math.min(Math.max(parseInt(process.env.MC_MEMORY_SEMANTIC_LIMIT || '3', 10) || 3, 1), 10);
+const SEMANTIC_RECALL_THRESHOLD = process.env.MC_MEMORY_SEMANTIC_THRESHOLD || '0.35';
+const SEMANTIC_RECALL_TIMEOUT_MS = Math.min(
+  Math.max(parseInt(process.env.MC_MEMORY_SEMANTIC_TIMEOUT_MS || '10000', 10) || 10000, 2000),
+  30000
+);
 
 export interface RecalledMemory {
   workspace?: string;
@@ -97,8 +103,17 @@ async function recallSemanticMemory(query: string): Promise<string | undefined> 
   try {
     const { stdout } = await execFileAsync(
       'node',
-      [scriptPath, '--query', query, '--limit', '3', '--threshold', '0.25', '--json'],
-      { cwd: process.cwd(), timeout: 12000, maxBuffer: 1024 * 1024 }
+      [
+        scriptPath,
+        '--query',
+        query,
+        '--limit',
+        String(SEMANTIC_RECALL_LIMIT),
+        '--threshold',
+        String(SEMANTIC_RECALL_THRESHOLD),
+        '--json',
+      ],
+      { cwd: process.cwd(), timeout: SEMANTIC_RECALL_TIMEOUT_MS, maxBuffer: 1024 * 1024 }
     );
 
     const rows = JSON.parse(stdout || '[]') as Array<{
